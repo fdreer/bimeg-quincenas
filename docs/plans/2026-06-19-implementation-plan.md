@@ -161,6 +161,8 @@ git add -A && git commit -m "test: add vitest setup"
 
 # FASE 1 — Capa de datos (TDD)
 
+> ⚠️ **Actualizado 2026-06-19 (post-brainstorming).** Tras verificar el esquema con el usuario, el código va **en español** y el modelo se amplió a **5 tablas**: `categorias`, `tarifas_obrero` (override por obrero), `quincenas` (+`cerrada_en`), `horas`, `liquidaciones` (snapshot al cerrar: congela tarifa + adelantos). La implementación real está en `src/` (fuente de verdad); los bloques de código de abajo quedan como **referencia conceptual** (nombres en inglés del plan original). Decisiones completas en [PROGRESS.md](../PROGRESS.md). Las Fases 2–4 se adaptan a estos nombres al implementarse.
+
 ### Task 1.1 🤖 IA: Esquema Drizzle
 
 **Files:** Create `src/db/schema.ts`, `src/db/index.ts`, `drizzle.config.ts`

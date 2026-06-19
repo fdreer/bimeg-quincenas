@@ -1,0 +1,324 @@
+{
+  "id": "adab5fcd-a24e-4120-a215-17d717dcbfda",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.categorias": {
+      "name": "categorias",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "odoo_puesto_id": {
+          "name": "odoo_puesto_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_hora": {
+          "name": "valor_hora",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actualizado_en": {
+          "name": "actualizado_en",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "categorias_odoo_puesto_id_unique": {
+          "name": "categorias_odoo_puesto_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "odoo_puesto_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.horas": {
+      "name": "horas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "quincena_id": {
+          "name": "quincena_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "odoo_obrero_id": {
+          "name": "odoo_obrero_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "odoo_obra_id": {
+          "name": "odoo_obra_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fecha": {
+          "name": "fecha",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "horas": {
+          "name": "horas",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "horas_quincena_id_quincenas_id_fk": {
+          "name": "horas_quincena_id_quincenas_id_fk",
+          "tableFrom": "horas",
+          "tableTo": "quincenas",
+          "columnsFrom": [
+            "quincena_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "horas_quincena_id_odoo_obrero_id_fecha_odoo_obra_id_unique": {
+          "name": "horas_quincena_id_odoo_obrero_id_fecha_odoo_obra_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "quincena_id",
+            "odoo_obrero_id",
+            "fecha",
+            "odoo_obra_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.liquidaciones": {
+      "name": "liquidaciones",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "quincena_id": {
+          "name": "quincena_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "odoo_obrero_id": {
+          "name": "odoo_obrero_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_hora": {
+          "name": "valor_hora",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "adelantos": {
+          "name": "adelantos",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "liquidaciones_quincena_id_quincenas_id_fk": {
+          "name": "liquidaciones_quincena_id_quincenas_id_fk",
+          "tableFrom": "liquidaciones",
+          "tableTo": "quincenas",
+          "columnsFrom": [
+            "quincena_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "liquidaciones_quincena_id_odoo_obrero_id_unique": {
+          "name": "liquidaciones_quincena_id_odoo_obrero_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "quincena_id",
+            "odoo_obrero_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.quincenas": {
+      "name": "quincenas",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "odoo_empresa_id": {
+          "name": "odoo_empresa_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fecha_inicio": {
+          "name": "fecha_inicio",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fecha_fin": {
+          "name": "fecha_fin",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "estado": {
+          "name": "estado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'borrador'"
+        },
+        "cerrada_en": {
+          "name": "cerrada_en",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "creada_en": {
+          "name": "creada_en",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "quincenas_odoo_empresa_id_fecha_inicio_fecha_fin_unique": {
+          "name": "quincenas_odoo_empresa_id_fecha_inicio_fecha_fin_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "odoo_empresa_id",
+            "fecha_inicio",
+            "fecha_fin"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.tarifas_obrero": {
+      "name": "tarifas_obrero",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "odoo_obrero_id": {
+          "name": "odoo_obrero_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valor_hora": {
+          "name": "valor_hora",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actualizado_en": {
+          "name": "actualizado_en",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tarifas_obrero_odoo_obrero_id_unique": {
+          "name": "tarifas_obrero_odoo_obrero_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "odoo_obrero_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
