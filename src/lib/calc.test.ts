@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, HORAS_JORNAL } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -52,4 +52,17 @@ test("costoPorObra agrupa por obra", () => {
 });
 test("saldo = devengado - adelantos", () => {
   expect(saldo(16000, 5000)).toBe(11000);
+});
+
+// Horas por rango horario (8–13 + 14–17 = 5 + 3 = 8).
+test("horasEntre calcula el rango", () => {
+  expect(horasEntre("08:00", "13:00")).toBe(5);
+  expect(horasEntre("14:00", "17:00")).toBe(3);
+});
+test("horasEntre con medias horas", () => {
+  expect(horasEntre("08:30", "12:00")).toBe(3.5);
+});
+test("horasEntre devuelve 0 si falta un horario o el rango es inválido", () => {
+  expect(horasEntre("", "")).toBe(0);
+  expect(horasEntre("17:00", "08:00")).toBe(0);
 });

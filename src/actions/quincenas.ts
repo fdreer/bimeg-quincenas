@@ -19,7 +19,15 @@ export async function asegurarQuincena(empresaId: number, anio: number, mes: num
 const GuardarHoras = z.object({
   quincenaId: z.number().int(),
   obreroId: z.number().int(),
-  filas: z.array(z.object({ fecha: z.string(), obraId: z.number().int(), horas: z.number().min(0).max(24) })),
+  filas: z.array(z.object({
+    fecha: z.string(),
+    tipo: z.enum(["trabajado", "ausente"]),
+    obraId: z.number().int().nullable(),
+    desde: z.string().nullable(),
+    hasta: z.string().nullable(),
+    horas: z.number().min(0).max(24),
+    comentario: z.string().nullable(),
+  })),
 });
 
 export async function guardarHoras(input: z.infer<typeof GuardarHoras>) {
@@ -29,7 +37,8 @@ export async function guardarHoras(input: z.infer<typeof GuardarHoras>) {
   if (datos.filas.length === 0) return { guardadas: 0 };
   await db.insert(horas).values(datos.filas.map((f) => ({
     quincenaId: datos.quincenaId, obreroId: datos.obreroId,
-    odooObraId: f.obraId, fecha: f.fecha, horas: String(f.horas),
+    tipo: f.tipo, odooObraId: f.obraId, fecha: f.fecha,
+    desde: f.desde, hasta: f.hasta, horas: String(f.horas), comentario: f.comentario,
   })));
   return { guardadas: datos.filas.length };
 }

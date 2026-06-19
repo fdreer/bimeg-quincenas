@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
-import { useCargaStore } from "@/store/carga-store";
+import { useCargaStore, type FilaBorrador } from "@/store/carga-store";
 import { asegurarQuincena, guardarHoras } from "@/actions/quincenas";
+import { horasEntre } from "@/lib/calc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,8 @@ import type { Empresa, Obra } from "@/lib/odoo/queries";
 
 type ObreroLite = { id: number; nombre: string };
 const record = <T extends { id: number; nombre: string }>(xs: T[]) => Object.fromEntries(xs.map((x) => [String(x.id), x.nombre]));
+
+type FilaPayload = { fecha: string; tipo: "trabajado" | "ausente"; obraId: number | null; desde: string | null; hasta: string | null; horas: number; comentario: string | null };
 
 export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
   empresas: Empresa[];
@@ -30,24 +33,51 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
 
   const obras = obrasPorEmpresa[empresaId] ?? [];
   const obraItems = record(obras);
+  const ultima = filas[filas.length - 1];
 
-  // Carga rápida: el próximo día arranca en la fecha siguiente y con la misma obra que la última fila.
   function proximaFecha() {
-    if (filas.length === 0) return format(ahora, "yyyy-MM-dd");
-    return format(addDays(parseISO(filas[filas.length - 1].fecha), 1), "yyyy-MM-dd");
+    if (!ultima) return format(ahora, "yyyy-MM-dd");
+    return format(addDays(parseISO(ultima.fecha), 1), "yyyy-MM-dd");
   }
-  function agregarDia() {
-    agregarFila(proximaFecha(), filas[filas.length - 1]?.obraId ?? null);
+  // + Día: día siguiente repitiendo obra y horario de la última fila (carga rápida).
+  function nuevoDia() {
+    agregarFila({
+      fecha: proximaFecha(), tipo: "trabajado",
+      obraId: ultima?.tipo === "trabajado" ? ultima.obraId : null,
+      desde: ultima?.desde ?? "", hasta: ultima?.hasta ?? "",
+      horas: ultima?.tipo === "trabajado" ? ultima.horas : 8, comentario: "",
+    });
+  }
+  // + Bloque: otra obra/turno el MISMO día (multi-obra, jornada partida).
+  function nuevoBloque() {
+    agregarFila({
+      fecha: ultima?.fecha ?? format(ahora, "yyyy-MM-dd"), tipo: "trabajado",
+      obraId: null, desde: "", hasta: "", horas: 0, comentario: "",
+    });
+  }
+
+  function cambiarTipo(f: FilaBorrador, tipo: "trabajado" | "ausente") {
+    editarFila(f.id, tipo === "ausente" ? { tipo, horas: 0 } : { tipo, horas: f.horas || 8 });
+  }
+  // Si hay desde y hasta, las horas se calculan solas (editables igual).
+  function cambiarTiempo(f: FilaBorrador, campo: "desde" | "hasta", val: string) {
+    const desde = campo === "desde" ? val : f.desde;
+    const hasta = campo === "hasta" ? val : f.hasta;
+    const patch: Partial<FilaBorrador> = { [campo]: val };
+    if (desde && hasta) patch.horas = horasEntre(desde, hasta);
+    editarFila(f.id, patch);
   }
 
   async function onGuardar() {
     setMsg("Guardando…");
     const q = await asegurarQuincena(empresaId, anio, mes, mitad);
-    const limpias = filas
-      .filter((f) => f.obraId && f.horas > 0)
-      .map((f) => ({ fecha: f.fecha, obraId: f.obraId as number, horas: f.horas }));
+    const limpias: FilaPayload[] = filas
+      .map((f): FilaPayload => f.tipo === "ausente"
+        ? { fecha: f.fecha, tipo: "ausente", obraId: null, desde: null, hasta: null, horas: 0, comentario: f.comentario.trim() || null }
+        : { fecha: f.fecha, tipo: "trabajado", obraId: f.obraId, desde: f.desde || null, hasta: f.hasta || null, horas: f.horas, comentario: f.comentario.trim() || null })
+      .filter((f) => f.tipo === "ausente" || (f.obraId != null && f.horas > 0));
     const res = await guardarHoras({ quincenaId: q.id, obreroId, filas: limpias });
-    setMsg(`Guardado: ${res.guardadas} días.`);
+    setMsg(`Guardado: ${res.guardadas} movimientos.`);
   }
 
   return (
@@ -58,18 +88,14 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
             <Label>Empresa</Label>
             <Select items={record(empresas)} value={String(empresaId)} onValueChange={(v) => setEmpresaId(Number(v))}>
               <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {empresas.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{empresas.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
             <Label>Obrero</Label>
             <Select items={record(obreros)} value={String(obreroId)} onValueChange={(v) => setObreroId(Number(v))}>
               <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {obreros.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}
-              </SelectContent>
+              <SelectContent>{obreros.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
@@ -96,33 +122,51 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-40">Fecha</TableHead>
+            <TableHead className="w-36">Fecha</TableHead>
+            <TableHead className="w-28">Tipo</TableHead>
             <TableHead>Obra</TableHead>
-            <TableHead className="w-24">Horas</TableHead>
+            <TableHead className="w-28">Desde</TableHead>
+            <TableHead className="w-28">Hasta</TableHead>
+            <TableHead className="w-20">Horas</TableHead>
+            <TableHead>Nota / motivo</TableHead>
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filas.map((f) => (
-            <TableRow key={f.id}>
-              <TableCell><Input type="date" value={f.fecha} onChange={(e) => editarFila(f.id, { fecha: e.target.value })} /></TableCell>
-              <TableCell>
-                <Select items={obraItems} value={f.obraId != null ? String(f.obraId) : null} onValueChange={(v) => editarFila(f.id, { obraId: v ? Number(v) : null })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="— elegir obra —" /></SelectTrigger>
-                  <SelectContent>
-                    {obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </TableCell>
-              <TableCell><Input type="number" step="0.5" className="w-20" value={f.horas} onChange={(e) => editarFila(f.id, { horas: Number(e.target.value) })} /></TableCell>
-              <TableCell><Button variant="ghost" size="icon-sm" onClick={() => quitarFila(f.id)} aria-label="Quitar">✕</Button></TableCell>
-            </TableRow>
-          ))}
+          {filas.map((f) => {
+            const ausente = f.tipo === "ausente";
+            return (
+              <TableRow key={f.id}>
+                <TableCell><Input type="date" value={f.fecha} onChange={(e) => editarFila(f.id, { fecha: e.target.value })} className="w-36" /></TableCell>
+                <TableCell>
+                  <Select items={{ trabajado: "Trabajó", ausente: "Ausente" }} value={f.tipo} onValueChange={(v) => cambiarTipo(f, v as "trabajado" | "ausente")}>
+                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="trabajado">Trabajó</SelectItem>
+                      <SelectItem value="ausente">Ausente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <Select items={obraItems} value={f.obraId != null ? String(f.obraId) : null} disabled={ausente} onValueChange={(v) => editarFila(f.id, { obraId: v ? Number(v) : null })}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="— elegir obra —" /></SelectTrigger>
+                    <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell><Input type="time" value={f.desde} disabled={ausente} onChange={(e) => cambiarTiempo(f, "desde", e.target.value)} className="w-28" /></TableCell>
+                <TableCell><Input type="time" value={f.hasta} disabled={ausente} onChange={(e) => cambiarTiempo(f, "hasta", e.target.value)} className="w-28" /></TableCell>
+                <TableCell><Input type="number" step="0.5" value={ausente ? 0 : f.horas} disabled={ausente} onChange={(e) => editarFila(f.id, { horas: Number(e.target.value) })} className="w-20" /></TableCell>
+                <TableCell><Input value={f.comentario} placeholder={ausente ? "motivo (Médico…)" : "nota (opcional)"} onChange={(e) => editarFila(f.id, { comentario: e.target.value })} /></TableCell>
+                <TableCell><Button variant="ghost" size="icon-sm" onClick={() => quitarFila(f.id)} aria-label="Quitar">✕</Button></TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
 
-      <div className="flex gap-2">
-        <Button variant="secondary" onClick={agregarDia}>+ Día</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={nuevoDia}>+ Día</Button>
+        <Button variant="outline" onClick={nuevoBloque} disabled={!ultima}>+ Bloque mismo día</Button>
         <Button onClick={onGuardar} disabled={filas.length === 0 || !obreroId}>Guardar quincena</Button>
         <Button variant="ghost" onClick={reset}>Limpiar</Button>
       </div>

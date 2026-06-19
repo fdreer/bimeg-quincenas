@@ -9,10 +9,13 @@ CREATE TABLE "horas" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"quincena_id" integer NOT NULL,
 	"obrero_id" integer NOT NULL,
-	"odoo_obra_id" integer NOT NULL,
+	"tipo" text DEFAULT 'trabajado' NOT NULL,
+	"odoo_obra_id" integer,
 	"fecha" date NOT NULL,
+	"desde" text,
+	"hasta" text,
 	"horas" numeric(5, 2) NOT NULL,
-	CONSTRAINT "horas_quincena_id_obrero_id_fecha_odoo_obra_id_unique" UNIQUE("quincena_id","obrero_id","fecha","odoo_obra_id")
+	"comentario" text
 );
 --> statement-breakpoint
 CREATE TABLE "liquidaciones" (

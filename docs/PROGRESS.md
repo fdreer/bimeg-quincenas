@@ -153,6 +153,22 @@ Pedido: usar shadcn en todas las secciones (estilos mínimos), priorizando carga
 
 ---
 
+## Carga: rango horario, multi-obra/día y ausencias
+
+### 2026-06-19 · Modelo de carga ampliado ✅
+Pedido del usuario sobre cómo se registra realmente la tarja:
+- **Multi-obra por día** (obra X 4 hs + obra Y 4 hs) → ya soportado con varias filas; se agregó botón **"+ Bloque mismo día"**.
+- **Rango horario** (8–13, 14–17) → cada fila tiene **desde/hasta**; las **horas se calculan solas** (`horasEntre`, con test). Editable igual si solo se sabe el total.
+- **Ausente + motivo** ("Médico") → cada fila tiene **tipo** Trabajó/Ausente; ausente lleva `comentario` y **horas 0** (no paga).
+- **Tabla `horas`** (migración NO destructiva, datos preservados): +`tipo` (default `trabajado`), +`desde`, +`hasta`, +`comentario`; `odoo_obra_id` ahora **nullable** (ausencias); se quitó el unique por día (permite turnos partidos / mismo obra dos veces).
+- `guardarHoras` acepta los campos nuevos; el form arma filas trabajado/ausente y filtra las incompletas.
+- Verificación: `pnpm test` → **16 PASS** (incluye `horasEntre`), `db:push` aplicado sin perder datos, `pnpm build` OK.
+
+### Pendiente para Fase 4 (saldos)
+- Al armar el cálculo: incluir solo filas `trabajado` en devengado/costo (las `ausente` aportan 0 y no tienen obra).
+
+---
+
 ## Diferido a propósito (⏸️ del plan)
 - Autenticación (better-auth + Google + allowlist) → **antes de cualquier deploy** (es dato de sueldos; mientras tanto correr solo en `localhost`).
 - Escritura del costo a Odoo (cerrar quincena → factura vs asiento) → definir con el contador.

@@ -29,15 +29,20 @@ export const quincenas = pgTable("quincenas", {
   creadaEn: timestamp("creada_en").defaultNow().notNull(),
 }, (t) => ({ periodoUnico: unique().on(t.odooEmpresaId, t.fechaInicio, t.fechaFin) }));
 
-// Una fila por día/obra de cada obrero (espeja la tarja).
+// Un movimiento por día: un bloque trabajado (obra + rango horario) o una ausencia.
+// Varias filas por día permiten multi-obra y turnos partidos (8–13, 14–17).
 export const horas = pgTable("horas", {
   id: serial("id").primaryKey(),
   quincenaId: integer("quincena_id").notNull().references(() => quincenas.id, { onDelete: "cascade" }),
   obreroId: integer("obrero_id").notNull().references(() => obreros.id),
-  odooObraId: integer("odoo_obra_id").notNull(),
+  tipo: text("tipo").notNull().default("trabajado"), // trabajado | ausente
+  odooObraId: integer("odoo_obra_id"), // null si ausente
   fecha: date("fecha").notNull(),
-  horas: numeric("horas", { precision: 5, scale: 2 }).notNull(),
-}, (t) => ({ diaUnico: unique().on(t.quincenaId, t.obreroId, t.fecha, t.odooObraId) }));
+  desde: text("desde"), // "HH:MM" (opcional; si está, define las horas)
+  hasta: text("hasta"),
+  horas: numeric("horas", { precision: 5, scale: 2 }).notNull(), // 0 si ausente
+  comentario: text("comentario"), // motivo de ausencia ("Médico") o nota
+});
 
 // Snapshot escrito AL CERRAR: congela jornal y adelantos para fijar el histórico.
 export const liquidaciones = pgTable("liquidaciones", {

@@ -23,6 +23,18 @@ export function valorHora(valorJornal: number): number {
   return valorJornal / HORAS_JORNAL;
 }
 
+/** Horas entre dos horarios "HH:MM" del mismo día. 0 si falta alguno o el rango es inválido. */
+export function horasEntre(desde: string, hasta: string): number {
+  const aMin = (t: string) => {
+    const [h, m] = (t ?? "").split(":").map(Number);
+    return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : NaN;
+  };
+  const d = aMin(desde), h = aMin(hasta);
+  if (!Number.isFinite(d) || !Number.isFinite(h)) return 0;
+  const horas = (h - d) / 60;
+  return horas > 0 ? Math.round(horas * 100) / 100 : 0;
+}
+
 export type FilaCalc = { obreroId: number; obraId: number; horas: number };
 
 export function devengadoPorObrero(filas: FilaCalc[], tarifa: (obreroId: number) => number): Map<number, number> {

@@ -1,5 +1,5 @@
 {
-  "id": "e84f5615-436d-4848-a038-edec3b0363e8",
+  "id": "91c5a598-5870-4389-962c-83cf6aba5bd2",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -64,11 +64,18 @@
           "primaryKey": false,
           "notNull": true
         },
+        "tipo": {
+          "name": "tipo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'trabajado'"
+        },
         "odoo_obra_id": {
           "name": "odoo_obra_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "fecha": {
           "name": "fecha",
@@ -76,11 +83,29 @@
           "primaryKey": false,
           "notNull": true
         },
+        "desde": {
+          "name": "desde",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hasta": {
+          "name": "hasta",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "horas": {
           "name": "horas",
           "type": "numeric(5, 2)",
           "primaryKey": false,
           "notNull": true
+        },
+        "comentario": {
+          "name": "comentario",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -113,18 +138,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "horas_quincena_id_obrero_id_fecha_odoo_obra_id_unique": {
-          "name": "horas_quincena_id_obrero_id_fecha_odoo_obra_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "quincena_id",
-            "obrero_id",
-            "fecha",
-            "odoo_obra_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
