@@ -167,6 +167,12 @@ Pedido del usuario sobre cómo se registra realmente la tarja:
 ### Pendiente para Fase 4 (saldos)
 - Al armar el cálculo: incluir solo filas `trabajado` en devengado/costo (las `ausente` aportan 0 y no tienen obra).
 
+### 2026-06-19 · Correcciones de UX en /carga ✅
+- **Año y Mes** pasan a **Select** (mes con nombres) alineados en el Card de filtros.
+- **Tabla sin scroll horizontal**: contenedor a `max-w-6xl` + `table-fixed`, obra/nota flexibles, horas/tipo/fecha con ancho fijo.
+- **Nota** se habilita **solo cuando Tipo = Ausente** (motivo de la falta).
+- **Mismo día / misma obra** más intuitivo: se quitó el botón global "+ Bloque"; ahora cada fila tiene un **＋** que inserta otro bloque debajo (mismo día y obra, horario en blanco). `duplicarFila` en el store.
+
 ---
 
 ## Diferido a propósito (⏸️ del plan)

@@ -15,6 +15,9 @@ import type { Empresa, Obra } from "@/lib/odoo/queries";
 type ObreroLite = { id: number; nombre: string };
 const record = <T extends { id: number; nombre: string }>(xs: T[]) => Object.fromEntries(xs.map((x) => [String(x.id), x.nombre]));
 
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const mesItems = Object.fromEntries(MESES.map((n, i) => [String(i + 1), n]));
+
 type FilaPayload = { fecha: string; tipo: "trabajado" | "ausente"; obraId: number | null; desde: string | null; hasta: string | null; horas: number; comentario: string | null };
 
 export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
@@ -29,11 +32,13 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
   const [mes, setMes] = useState(ahora.getMonth() + 1);
   const [mitad, setMitad] = useState<1 | 2>(ahora.getDate() <= 15 ? 1 : 2);
   const [msg, setMsg] = useState("");
-  const { filas, agregarFila, editarFila, quitarFila, reset } = useCargaStore();
+  const { filas, agregarFila, duplicarFila, editarFila, quitarFila, reset } = useCargaStore();
 
   const obras = obrasPorEmpresa[empresaId] ?? [];
   const obraItems = record(obras);
   const ultima = filas[filas.length - 1];
+  const cy = ahora.getFullYear();
+  const anioItems = Object.fromEntries([cy - 2, cy - 1, cy, cy + 1].map((a) => [String(a), String(a)]));
 
   function proximaFecha() {
     if (!ultima) return format(ahora, "yyyy-MM-dd");
@@ -46,13 +51,6 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
       obraId: ultima?.tipo === "trabajado" ? ultima.obraId : null,
       desde: ultima?.desde ?? "", hasta: ultima?.hasta ?? "",
       horas: ultima?.tipo === "trabajado" ? ultima.horas : 8, comentario: "",
-    });
-  }
-  // + Bloque: otra obra/turno el MISMO día (multi-obra, jornada partida).
-  function nuevoBloque() {
-    agregarFila({
-      fecha: ultima?.fecha ?? format(ahora, "yyyy-MM-dd"), tipo: "trabajado",
-      obraId: null, desde: "", hasta: "", horas: 0, comentario: "",
     });
   }
 
@@ -83,28 +81,34 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
   return (
     <div className="space-y-4">
       <Card size="sm">
-        <CardContent className="flex flex-wrap items-end gap-3">
+        <CardContent className="flex flex-wrap items-end gap-4">
           <div className="grid gap-1.5">
             <Label>Empresa</Label>
             <Select items={record(empresas)} value={String(empresaId)} onValueChange={(v) => setEmpresaId(Number(v))}>
-              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
               <SelectContent>{empresas.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
             <Label>Obrero</Label>
             <Select items={record(obreros)} value={String(obreroId)} onValueChange={(v) => setObreroId(Number(v))}>
-              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
               <SelectContent>{obreros.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="anio">Año</Label>
-            <Input id="anio" type="number" className="w-24" value={anio} onChange={(e) => setAnio(Number(e.target.value))} />
+            <Label>Año</Label>
+            <Select items={anioItems} value={String(anio)} onValueChange={(v) => setAnio(Number(v))}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>{Object.keys(anioItems).map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="mes">Mes</Label>
-            <Input id="mes" type="number" min={1} max={12} className="w-20" value={mes} onChange={(e) => setMes(Number(e.target.value))} />
+            <Label>Mes</Label>
+            <Select items={mesItems} value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>{MESES.map((n, i) => <SelectItem key={n} value={String(i + 1)}>{n}</SelectItem>)}</SelectContent>
+            </Select>
           </div>
           <div className="grid gap-1.5">
             <Label>Quincena</Label>
@@ -119,7 +123,7 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
         </CardContent>
       </Card>
 
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-36">Fecha</TableHead>
@@ -127,9 +131,9 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
             <TableHead>Obra</TableHead>
             <TableHead className="w-28">Desde</TableHead>
             <TableHead className="w-28">Hasta</TableHead>
-            <TableHead className="w-20">Horas</TableHead>
+            <TableHead className="w-16">Horas</TableHead>
             <TableHead>Nota / motivo</TableHead>
-            <TableHead className="w-12" />
+            <TableHead className="w-20" />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -137,10 +141,10 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
             const ausente = f.tipo === "ausente";
             return (
               <TableRow key={f.id}>
-                <TableCell><Input type="date" value={f.fecha} onChange={(e) => editarFila(f.id, { fecha: e.target.value })} className="w-36" /></TableCell>
+                <TableCell><Input type="date" value={f.fecha} onChange={(e) => editarFila(f.id, { fecha: e.target.value })} className="w-full" /></TableCell>
                 <TableCell>
                   <Select items={{ trabajado: "Trabajó", ausente: "Ausente" }} value={f.tipo} onValueChange={(v) => cambiarTipo(f, v as "trabajado" | "ausente")}>
-                    <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="trabajado">Trabajó</SelectItem>
                       <SelectItem value="ausente">Ausente</SelectItem>
@@ -153,11 +157,14 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
                     <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell><Input type="time" value={f.desde} disabled={ausente} onChange={(e) => cambiarTiempo(f, "desde", e.target.value)} className="w-28" /></TableCell>
-                <TableCell><Input type="time" value={f.hasta} disabled={ausente} onChange={(e) => cambiarTiempo(f, "hasta", e.target.value)} className="w-28" /></TableCell>
-                <TableCell><Input type="number" step="0.5" value={ausente ? 0 : f.horas} disabled={ausente} onChange={(e) => editarFila(f.id, { horas: Number(e.target.value) })} className="w-20" /></TableCell>
-                <TableCell><Input value={f.comentario} placeholder={ausente ? "motivo (Médico…)" : "nota (opcional)"} onChange={(e) => editarFila(f.id, { comentario: e.target.value })} /></TableCell>
-                <TableCell><Button variant="ghost" size="icon-sm" onClick={() => quitarFila(f.id)} aria-label="Quitar">✕</Button></TableCell>
+                <TableCell><Input type="time" value={f.desde} disabled={ausente} onChange={(e) => cambiarTiempo(f, "desde", e.target.value)} className="w-full" /></TableCell>
+                <TableCell><Input type="time" value={f.hasta} disabled={ausente} onChange={(e) => cambiarTiempo(f, "hasta", e.target.value)} className="w-full" /></TableCell>
+                <TableCell><Input type="number" step="0.5" value={ausente ? 0 : f.horas} disabled={ausente} onChange={(e) => editarFila(f.id, { horas: Number(e.target.value) })} className="w-full" /></TableCell>
+                <TableCell><Input value={f.comentario} disabled={!ausente} placeholder={ausente ? "motivo (Médico…)" : ""} onChange={(e) => editarFila(f.id, { comentario: e.target.value })} className="w-full" /></TableCell>
+                <TableCell className="text-right whitespace-nowrap">
+                  <Button variant="ghost" size="icon-sm" onClick={() => duplicarFila(f.id)} disabled={ausente} title="Agregar otro bloque a este mismo día" aria-label="Agregar bloque">＋</Button>
+                  <Button variant="ghost" size="icon-sm" onClick={() => quitarFila(f.id)} title="Quitar" aria-label="Quitar">✕</Button>
+                </TableCell>
               </TableRow>
             );
           })}
@@ -166,7 +173,6 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
 
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={nuevoDia}>+ Día</Button>
-        <Button variant="outline" onClick={nuevoBloque} disabled={!ultima}>+ Bloque mismo día</Button>
         <Button onClick={onGuardar} disabled={filas.length === 0 || !obreroId}>Guardar quincena</Button>
         <Button variant="ghost" onClick={reset}>Limpiar</Button>
       </div>
