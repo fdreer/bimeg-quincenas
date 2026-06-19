@@ -22,18 +22,17 @@ export async function listarObreros() {
   return { obreros: filas, categorias: cats };
 }
 
-export async function guardarObrero(formData: FormData) {
-  const id = Number(formData.get("id"));
-  const categoriaRaw = formData.get("categoriaId");
-  const jornalRaw = formData.get("valorJornal");
-  const aliasRaw = formData.get("aliasCbu");
-
-  const categoriaId = categoriaRaw && categoriaRaw !== "" ? Number(categoriaRaw) : null;
-  const valorJornal = jornalRaw && jornalRaw !== "" ? String(Number(jornalRaw)) : null;
-  const aliasCbu = aliasRaw && String(aliasRaw).trim() !== "" ? String(aliasRaw).trim() : null;
-
+export async function guardarObrero(
+  id: number,
+  datos: { categoriaId: number | null; valorJornal: number | null; aliasCbu: string | null },
+) {
   await db.update(obreros)
-    .set({ categoriaId, valorJornal, aliasCbu, actualizadoEn: sql`now()` })
+    .set({
+      categoriaId: datos.categoriaId,
+      valorJornal: datos.valorJornal != null ? String(datos.valorJornal) : null,
+      aliasCbu: datos.aliasCbu,
+      actualizadoEn: sql`now()`,
+    })
     .where(eq(obreros.id, id));
   revalidatePath("/obreros");
 }

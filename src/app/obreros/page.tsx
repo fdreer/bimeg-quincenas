@@ -1,6 +1,6 @@
-import { listarObreros, sincronizarObreros, guardarObrero } from "@/actions/obreros";
-import { Input } from "@/components/ui/input";
+import { listarObreros, sincronizarObreros } from "@/actions/obreros";
 import { Button } from "@/components/ui/button";
+import { ObrerosTabla } from "./obreros-tabla";
 
 export const dynamic = "force-dynamic"; // lee datos vivos de la DB en cada request
 
@@ -15,47 +15,19 @@ export default async function ObrerosPage() {
         </form>
       </div>
 
+      {categorias.length === 0 && (
+        <p className="text-sm text-muted-foreground">Cargá primero las categorías en <a className="underline" href="/categorias">/categorias</a> para poder asignarlas.</p>
+      )}
+
       {obreros.length === 0 ? (
         <p className="text-muted-foreground">
           No hay obreros todavía. Etiquetá los contactos como &quot;Obrero&quot; en Odoo y tocá &quot;Actualizar contactos&quot;.
         </p>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left border-b">
-              <th className="py-2">Obrero</th>
-              <th>Categoría</th>
-              <th>Jornal propio (opc.)</th>
-              <th>Alias / CBU</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {obreros.map((o) => (
-              <tr key={o.id} className="border-b">
-                <td className="py-2 align-middle">{o.nombre}</td>
-                <td colSpan={4}>
-                  <form action={guardarObrero} className="flex flex-wrap gap-2 items-center py-1">
-                    <input type="hidden" name="id" value={o.id} />
-                    <select name="categoriaId" defaultValue={o.categoriaId ?? ""} className="border rounded px-2 py-1">
-                      <option value="">— sin categoría —</option>
-                      {categorias.map((c) => (
-                        <option key={c.id} value={c.id}>{c.nombre}</option>
-                      ))}
-                    </select>
-                    <Input name="valorJornal" type="number" step="0.01" placeholder="usa categoría" defaultValue={o.valorJornal ?? ""} className="w-32" />
-                    <Input name="aliasCbu" placeholder="alias o CBU" defaultValue={o.aliasCbu ?? ""} className="w-56" />
-                    <Button type="submit" size="sm">Guardar</Button>
-                  </form>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {categorias.length === 0 && obreros.length > 0 && (
-        <p className="text-muted-foreground">Tip: cargá las categorías en /categorias para poder asignarlas acá.</p>
+        <ObrerosTabla
+          obreros={obreros.map((o) => ({ id: o.id, nombre: o.nombre, categoriaId: o.categoriaId, valorJornal: o.valorJornal, aliasCbu: o.aliasCbu }))}
+          categorias={categorias.map((c) => ({ id: c.id, nombre: c.nombre }))}
+        />
       )}
     </main>
   );

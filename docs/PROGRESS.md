@@ -140,6 +140,19 @@ Cambio de fondo pedido por el usuario (supera el enfoque hr.job/hr.employee de l
 
 ---
 
+## UI — shadcn en las 3 pantallas + UX de carga rápida
+
+### 2026-06-19 · Componentes shadcn + carga rápida ✅
+Pedido: usar shadcn en todas las secciones (estilos mínimos), priorizando carga de datos rápida.
+- **Componentes:** se reemplazó HTML crudo por shadcn `Table`, `Select`, `Card`, `Label`, `Input`, `Button` en `/categorias`, `/obreros`, `/carga`.
+- **Nota técnica:** el Select es de **Base UI** (`@base-ui/react`), no Radix. Soporta `items` (label), `value`/`onValueChange` (controlado) y `name`/`form` (submit nativo).
+- **/categorias** (server): Card con form "nueva categoría" + tabla editable (inputs asociados por atributo `form`).
+- **/obreros**: pasó a **componente cliente** (`obreros-tabla.tsx`) con Select controlado → más robusto que Select dentro de form nativo. `guardarObrero` cambió a args tipados.
+- **/carga** (cliente): selers de empresa/obrero/quincena en Card + tabla de días. **Mejoras de velocidad:** "+ Día" autocompleta la **fecha siguiente** y repite la **misma obra** de la última fila (el admin solo ajusta excepciones). Jornada default 8 hs.
+- Verificación: `pnpm build` OK, TS limpio, 3 rutas ƒ dynamic. (Render visual: a validar en `pnpm dev`.)
+
+---
+
 ## Diferido a propósito (⏸️ del plan)
 - Autenticación (better-auth + Google + allowlist) → **antes de cualquier deploy** (es dato de sueldos; mientras tanto correr solo en `localhost`).
 - Escritura del costo a Odoo (cerrar quincena → factura vs asiento) → definir con el contador.
