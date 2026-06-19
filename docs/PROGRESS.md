@@ -11,7 +11,7 @@
 | 0 · Setup y credenciales | 🤖 setup hecho · 🧑 falta crear cuentas + `.env.local` |
 | 1 · Capa de datos (TDD) | ✅ rediseñado (obreros desde Contactos · jornal) · 5 tablas en Supabase |
 | 2 · Categorías + Obreros | ✅ ABM categorías + pantalla obreros (botón "Actualizar contactos") |
-| 3 · Carga de horas | pendiente |
+| 3 · Carga de horas | ✅ store + acciones + pantalla (write-path verificado) |
 | 4 · Saldos y costos | pendiente |
 | 5 · Prueba end-to-end | pendiente |
 
@@ -123,6 +123,20 @@ Cambio de fondo pedido por el usuario (supera el enfoque hr.job/hr.employee de l
 - `pnpm build` OK · `/categorias` y `/obreros` = ƒ dynamic (`force-dynamic`).
 
 **🧑 Pendiente del usuario:** en /obreros tocar *Actualizar contactos* (trae los 5), asignarles categoría y alias/CBU. Cargar las categorías reales en /categorias.
+
+---
+
+## Fase 3 — Carga de horas
+
+### 2026-06-19 · Task 3.1/3.2/3.3 🤖 Carga de horas ✅
+- `src/store/carga-store.ts` — Zustand, borrador del form (filas: fecha, obra, horas). Solo UI.
+- `src/actions/quincenas.ts` — `asegurarQuincena(empresa, año, mes, mitad)` (crea o devuelve) y `guardarHoras` (reemplaza las filas del obrero en la quincena; idempotente para re-carga).
+- `src/app/carga/page.tsx` + `carga-form.tsx` — selector de empresa/obrero/quincena + tabla de días (obra de Odoo filtrada por empresa, horas). Botón Guardar.
+- `src/app/page.tsx` — home con navegación (Categorías → Obreros → Cargar horas).
+- Verificación: `pnpm build` OK (`/carga` ƒ dynamic). **Write-path probado contra la DB real** (insert obrero→categoría→quincena→horas con FKs y numeric) dentro de una transacción **revertida** (sin dejar datos).
+
+### Pendiente (cuando se implemente el cierre, Fase 4+)
+- `guardarHoras` debe rechazar si la quincena está `cerrada` (hoy ninguna lo está, se agrega con el cierre).
 
 ---
 
