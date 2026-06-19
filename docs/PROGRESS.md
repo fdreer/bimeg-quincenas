@@ -182,7 +182,7 @@ Pedido del usuario sobre cómo se registra realmente la tarja:
 - **Filtros de carga** (empresa/obrero/año/mes/quincena): full-width apilados en mobile (`w-full sm:w-…`), fijos en desktop.
 - **Tabla de carga**: `min-w-[56rem]` → en desktop entra completa (sin scroll), en mobile/tablet scrollea horizontal (en vez de aplastar los inputs).
 - Tablas de categorías/obreros: ya responsive por el wrapper `overflow-x-auto` de shadcn (scrollean en pantallas chicas).
-- Verificación: `pnpm build` OK. (Render mobile/desktop: pendiente de captura — bloqueado por el dev server del usuario en :3000.)
+- Verificación: `pnpm build` OK + **preview real** (medido): a 1000px `sm` aplica → filtros compactos (trigger 208px), **tabla entra, sin scroll de página**; a anchos chicos `sm` se apaga → filtros full-width apilados y la tabla scrollea dentro de su wrapper. `<meta viewport>` presente (lo inyecta Next).
 
 ---
 
