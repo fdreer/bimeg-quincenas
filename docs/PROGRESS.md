@@ -10,7 +10,7 @@
 |---|---|
 | 0 · Setup y credenciales | 🤖 setup hecho · 🧑 falta crear cuentas + `.env.local` |
 | 1 · Capa de datos (TDD) | ✅ hecho · 5 tablas creadas en Supabase |
-| 2 · Categorías (valor hora) | pendiente |
+| 2 · Categorías (valor hora) | 🤖 hecho (pantalla + acción) · 🧑 falta cargar puestos/valores en Odoo |
 | 3 · Carga de horas | pendiente |
 | 4 · Saldos y costos | pendiente |
 | 5 · Prueba end-to-end | pendiente |
@@ -72,6 +72,27 @@ Brainstorming para no migrar a futuro. Decisiones:
 - **Fix:** drizzle-kit no leía `.env.local` → se agregó `dotenv` en `drizzle.config.ts` (commit `631c3be`).
 - **Conexión:** `DATABASE_URL` = Transaction pooler (6543); `DIRECT_URL` = Session pooler (5432, mismo host/usuario, IPv4). Se evitó la Direct connection `db.<ref>.supabase.co` por ser solo IPv6.
 - `pnpm db:push` → **Changes applied**. Verificado: 5 tablas en `public` (categorias, tarifas_obrero, quincenas, horas, liquidaciones).
+
+---
+
+## Fase 2 — Categorías (valor hora)
+
+### 2026-06-19 · Verificación de Odoo en vivo (antes de construir)
+Probé credenciales + queries contra `bimeg.odoo.com` (Odoo 19, JSON-RPC OK, uid 2). Hallazgos:
+- **Empresas (2):** `1 = BIMEG CONSTRUCTORA S.R.L.`, `2 = BIMEG B`.
+- **Puestos (hr.job): solo 4**, 3 son demo de Odoo (CEO, Consultant, Experienced Developer) + `Obrero Capataz`. 🧑 **Faltan los reales** (HERRERO, OFICIAL, etc.).
+- **Obreros sin puesto:** los 5 de BIMEG B tienen `job_id: false`. 🧑 Con tarifa por categoría darían 0 hasta asignarles el puesto en Odoo (o cargar override por obrero).
+- **OK:** `work_contact_id` cargado (adelantos cruzarán bien) y 8 obras como cuentas analíticas con nombres reales.
+
+### 2026-06-19 · Task 2.1 🤖 Pantalla de categorías ✅
+- `src/actions/categorias.ts` — `listarCategorias` (puestos de Odoo + valor guardado) y `guardarValorCategoria` (upsert con Zod).
+- `src/app/categorias/page.tsx` — tabla con un form por fila para fijar el valor hora.
+- Verificación: `pnpm build` OK (compila, TS pasa, lint sin errores; `/categorias` = ƒ dynamic). Integraciones Odoo/DB ya verificadas aparte.
+
+### 🧑 Pendiente del usuario en Odoo (para que los números cierren)
+- Crear los **puestos reales** (HERRERO, OFICIAL, CAPATAZ…) en *Empleados → Configuración → Puestos*.
+- **Asignar el puesto** a cada obrero (o, en su defecto, usaremos el override por obrero en una pantalla futura).
+- Borrar/ignorar los puestos demo (CEO, Consultant, Experienced Developer).
 
 ---
 
