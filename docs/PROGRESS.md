@@ -9,7 +9,7 @@
 | Fase | Estado |
 |---|---|
 | 0 · Setup y credenciales | 🤖 setup hecho · 🧑 falta crear cuentas + `.env.local` |
-| 1 · Capa de datos (TDD) | 🤖 hecho (schema + odoo + calc, 12 tests) · 🧑 falta `db:push` |
+| 1 · Capa de datos (TDD) | ✅ hecho · 5 tablas creadas en Supabase |
 | 2 · Categorías (valor hora) | pendiente |
 | 3 · Carga de horas | pendiente |
 | 4 · Saldos y costos | pendiente |
@@ -67,8 +67,11 @@ Brainstorming para no migrar a futuro. Decisiones:
 - `src/lib/calc.ts` — `rangoQuincena`, `tarifaEfectiva` (override→categoría→0), `devengadoPorObrero`, `costoPorObra`, `saldo`.
 - Verificación: **`pnpm test` → 12 PASS** (calc + normalización + override) · `tsc --noEmit` OK · `db:generate` → SQL de las 5 tablas sin errores (`drizzle/0000_*.sql`).
 
-### 🧑 Pendiente del usuario (Task 1.2)
-- Con `.env.local` completo: `pnpm db:push` y verificar las 5 tablas en Supabase → *Table editor*.
+### 2026-06-19 · Task 1.2 ✅ Tablas creadas en Supabase
+- `.env.local` completado (Supabase + Odoo `bimeg.odoo.com`/db `bimeg`).
+- **Fix:** drizzle-kit no leía `.env.local` → se agregó `dotenv` en `drizzle.config.ts` (commit `631c3be`).
+- **Conexión:** `DATABASE_URL` = Transaction pooler (6543); `DIRECT_URL` = Session pooler (5432, mismo host/usuario, IPv4). Se evitó la Direct connection `db.<ref>.supabase.co` por ser solo IPv6.
+- `pnpm db:push` → **Changes applied**. Verificado: 5 tablas en `public` (categorias, tarifas_obrero, quincenas, horas, liquidaciones).
 
 ---
 
