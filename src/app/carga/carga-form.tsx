@@ -82,38 +82,38 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
     <div className="space-y-4">
       <Card size="sm">
         <CardContent className="flex flex-wrap items-end gap-4">
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 w-full sm:w-auto">
             <Label>Empresa</Label>
             <Select items={record(empresas)} value={String(empresaId)} onValueChange={(v) => setEmpresaId(Number(v))}>
-              <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
               <SelectContent>{empresas.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 w-full sm:w-auto">
             <Label>Obrero</Label>
             <Select items={record(obreros)} value={String(obreroId)} onValueChange={(v) => setObreroId(Number(v))}>
-              <SelectTrigger className="w-52"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
               <SelectContent>{obreros.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 w-full sm:w-auto">
             <Label>Año</Label>
             <Select items={anioItems} value={String(anio)} onValueChange={(v) => setAnio(Number(v))}>
-              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-28"><SelectValue /></SelectTrigger>
               <SelectContent>{Object.keys(anioItems).map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 w-full sm:w-auto">
             <Label>Mes</Label>
             <Select items={mesItems} value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
-              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
               <SelectContent>{MESES.map((n, i) => <SelectItem key={n} value={String(i + 1)}>{n}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid gap-1.5 w-full sm:w-auto">
             <Label>Quincena</Label>
             <Select items={{ "1": "1ª (1–15)", "2": "2ª (16–fin)" }} value={String(mitad)} onValueChange={(v) => setMitad(Number(v) as 1 | 2)}>
-              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">1ª (1–15)</SelectItem>
                 <SelectItem value="2">2ª (16–fin)</SelectItem>
@@ -123,7 +123,7 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
         </CardContent>
       </Card>
 
-      <Table className="table-fixed">
+      <Table className="table-fixed min-w-[56rem]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-36">Fecha</TableHead>

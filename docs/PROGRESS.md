@@ -175,6 +175,17 @@ Pedido del usuario sobre cómo se registra realmente la tarja:
 
 ---
 
+## Responsive (regla general)
+
+### 2026-06-19 · App responsive ✅
+- **Padding adaptable** en todas las páginas: `p-4 sm:p-6`.
+- **Filtros de carga** (empresa/obrero/año/mes/quincena): full-width apilados en mobile (`w-full sm:w-…`), fijos en desktop.
+- **Tabla de carga**: `min-w-[56rem]` → en desktop entra completa (sin scroll), en mobile/tablet scrollea horizontal (en vez de aplastar los inputs).
+- Tablas de categorías/obreros: ya responsive por el wrapper `overflow-x-auto` de shadcn (scrollean en pantallas chicas).
+- Verificación: `pnpm build` OK. (Render mobile/desktop: pendiente de captura — bloqueado por el dev server del usuario en :3000.)
+
+---
+
 ## Diferido a propósito (⏸️ del plan)
 - Autenticación (better-auth + Google + allowlist) → **antes de cualquier deploy** (es dato de sueldos; mientras tanto correr solo en `localhost`).
 - Escritura del costo a Odoo (cerrar quincena → factura vs asiento) → definir con el contador.

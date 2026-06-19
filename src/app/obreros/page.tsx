@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"; // lee datos vivos de la DB en cada requ
 export default async function ObrerosPage() {
   const { obreros, categorias } = await listarObreros();
   return (
-    <main className="max-w-4xl mx-auto p-6 space-y-4">
+    <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Obreros</h1>
         <form action={sincronizarObreros}>

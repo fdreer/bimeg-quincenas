@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic"; // lee datos vivos de la DB en cada requ
 export default async function CategoriasPage() {
   const filas = await listarCategorias();
   return (
-    <main className="max-w-2xl mx-auto p-6 space-y-6">
+    <main className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
       <h1 className="text-xl font-semibold">Categorías · valor del jornal</h1>
 
       <Card>

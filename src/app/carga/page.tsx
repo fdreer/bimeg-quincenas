@@ -12,7 +12,7 @@ export default async function CargaPage() {
   const obrerosLite = obreros.map((o) => ({ id: o.id, nombre: o.nombre }));
 
   return (
-    <main className="max-w-6xl mx-auto p-6 space-y-4">
+    <main className="max-w-6xl mx-auto p-4 sm:p-6 space-y-4">
       <h1 className="text-xl font-semibold">Carga de horas</h1>
       {obrerosLite.length === 0 ? (
         <p className="text-muted-foreground">
