@@ -9,8 +9,8 @@
 | Fase | Estado |
 |---|---|
 | 0 · Setup y credenciales | 🤖 setup hecho · 🧑 falta crear cuentas + `.env.local` |
-| 1 · Capa de datos (TDD) | ✅ hecho · 5 tablas creadas en Supabase |
-| 2 · Categorías (valor hora) | 🤖 hecho (pantalla + acción) · 🧑 falta cargar puestos/valores en Odoo |
+| 1 · Capa de datos (TDD) | ✅ rediseñado (obreros desde Contactos · jornal) · 5 tablas en Supabase |
+| 2 · Categorías + Obreros | ✅ ABM categorías + pantalla obreros (botón "Actualizar contactos") |
 | 3 · Carga de horas | pendiente |
 | 4 · Saldos y costos | pendiente |
 | 5 · Prueba end-to-end | pendiente |
@@ -93,6 +93,36 @@ Probé credenciales + queries contra `bimeg.odoo.com` (Odoo 19, JSON-RPC OK, uid
 - Crear los **puestos reales** (HERRERO, OFICIAL, CAPATAZ…) en *Empleados → Configuración → Puestos*.
 - **Asignar el puesto** a cada obrero (o, en su defecto, usaremos el override por obrero en una pantalla futura).
 - Borrar/ignorar los puestos demo (CEO, Consultant, Experienced Developer).
+
+---
+
+## Rediseño 2026-06-19 — Obreros desde Contactos + modelo de jornal
+
+Cambio de fondo pedido por el usuario (supera el enfoque hr.job/hr.employee de las secciones de arriba).
+
+**Decisiones nuevas:**
+- **Obreros = Contactos (res.partner) con etiqueta "Obrero"** (contact tag), no más `hr.employee`. La app los **persiste** y los enriquece.
+- **Categorías 100% de la app** (se elimina la dependencia de `hr.job`). El usuario las crea/edita en la app.
+- **Valor por JORNAL** (día de 8 hs), no por hora: `devengado = horas × (valor_jornal / 8)`. Constante `HORAS_JORNAL = 8`. >8 hs escala lineal (sin extras, según decisión "solo total de horas").
+- **alias/CBU**: un solo campo de texto en el obrero (dato para transferir).
+- **Override por obrero**: deja de ser tabla aparte → columna `obreros.valor_jornal` (null = usa la categoría).
+
+**Esquema final (5 tablas):**
+- `categorias` (id, nombre, valor_jornal) — sin lazo con Odoo.
+- `obreros` (odoo_contacto_id unique, nombre, categoria_id→, valor_jornal override, alias_cbu) — **NUEVA**, reemplaza `tarifas_obrero`.
+- `quincenas` (igual). `horas` y `liquidaciones`: `odoo_obrero_id` → `obrero_id` (FK a obreros). `liquidaciones.valor_hora` → `valor_jornal`.
+
+**Queries Odoo:** `obtenerContactosObreros()` (res.partner con etiqueta) reemplaza a `obtenerObreros`/`obtenerPuestos`/`normalizarObrero`. `obtenerAdelantos` igual (el contacto **es** el obrero).
+
+**Pantallas:** `/categorias` reescrita como ABM propio (nombre + valor jornal). `/obreros` **nueva**: botón *Actualizar contactos* (`sincronizarObreros` → upsert preservando lo cargado) + asignar categoría/override/alias.
+
+**Verificación (todo contra datos reales):**
+- `pnpm test` → **13 PASS** (incluye jornal, medio jornal, override).
+- Migración: tablas viejas dropeadas + `db:push` → 5 tablas nuevas confirmadas.
+- Odoo en vivo: la etiqueta **"Obrero" existe** y trae **5 obreros** (GUSTAVO BUCZEK, ISMAEL CARI, JORGE ARMELLA, ROBERTO VAZQUEZ, RODOLFO HERMAN). Filtro `category_id.name = "Obrero"` OK.
+- `pnpm build` OK · `/categorias` y `/obreros` = ƒ dynamic (`force-dynamic`).
+
+**🧑 Pendiente del usuario:** en /obreros tocar *Actualizar contactos* (trae los 5), asignarles categoría y alias/CBU. Cargar las categorías reales en /categorias.
 
 ---
 

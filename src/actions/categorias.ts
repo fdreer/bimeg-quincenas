@@ -1,36 +1,36 @@
 "use server";
 import { db } from "@/db";
 import { categorias } from "@/db/schema";
-import { obtenerPuestos } from "@/lib/odoo/queries";
-import { sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-// Lee los puestos de Odoo y les pega el valor hora guardado en nuestra DB (0 si no tiene).
 export async function listarCategorias() {
-  const puestos = await obtenerPuestos();
-  const guardadas = await db.select().from(categorias);
-  const valorPorPuesto = new Map(guardadas.map((c) => [c.odooPuestoId, Number(c.valorHora)]));
-  return puestos.map((p) => ({ odooPuestoId: p.id, nombre: p.nombre, valorHora: valorPorPuesto.get(p.id) ?? 0 }));
+  return db.select().from(categorias).orderBy(asc(categorias.nombre));
 }
 
-const ValorCategoria = z.object({
-  odooPuestoId: z.coerce.number().int(),
+const NuevaCategoria = z.object({ nombre: z.string().min(1), valorJornal: z.coerce.number().min(0) });
+
+export async function crearCategoria(formData: FormData) {
+  const datos = NuevaCategoria.parse({ nombre: formData.get("nombre"), valorJornal: formData.get("valorJornal") });
+  await db.insert(categorias).values({ nombre: datos.nombre, valorJornal: String(datos.valorJornal) });
+  revalidatePath("/categorias");
+}
+
+const EditarCategoria = z.object({
+  id: z.coerce.number().int(),
   nombre: z.string().min(1),
-  valorHora: z.coerce.number().min(0),
+  valorJornal: z.coerce.number().min(0),
 });
 
-export async function guardarValorCategoria(formData: FormData) {
-  const datos = ValorCategoria.parse({
-    odooPuestoId: formData.get("odooPuestoId"),
+export async function guardarCategoria(formData: FormData) {
+  const datos = EditarCategoria.parse({
+    id: formData.get("id"),
     nombre: formData.get("nombre"),
-    valorHora: formData.get("valorHora"),
+    valorJornal: formData.get("valorJornal"),
   });
-  await db.insert(categorias)
-    .values({ odooPuestoId: datos.odooPuestoId, nombre: datos.nombre, valorHora: String(datos.valorHora) })
-    .onConflictDoUpdate({
-      target: categorias.odooPuestoId,
-      set: { valorHora: String(datos.valorHora), nombre: datos.nombre, actualizadoEn: sql`now()` },
-    });
+  await db.update(categorias)
+    .set({ nombre: datos.nombre, valorJornal: String(datos.valorJornal), actualizadoEn: sql`now()` })
+    .where(eq(categorias.id, datos.id));
   revalidatePath("/categorias");
 }

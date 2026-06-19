@@ -2,30 +2,11 @@ import { ejecutar } from "./client";
 
 export type Empresa = { id: number; nombre: string };
 export type Obra = { id: number; nombre: string };
-export type Puesto = { id: number; nombre: string };
-export type Obrero = {
-  id: number;
-  nombre: string;
-  puestoId: number | null;
-  puestoNombre: string | null;
-  contactoId: number | null;
-};
+export type ContactoObrero = { odooContactoId: number; nombre: string };
 export type Adelanto = { contactoId: number; monto: number; fecha: string };
 
-// Odoo devuelve campos relacionales como [id, "nombre"] o false si están vacíos.
-type Tupla = [number, string] | false;
-const tuplaId = (t: Tupla) => (t ? t[0] : null);
-const tuplaNombre = (t: Tupla) => (t ? t[1] : null);
-
-export function normalizarObrero(r: any): Obrero {
-  return {
-    id: r.id,
-    nombre: r.name,
-    puestoId: tuplaId(r.job_id),
-    puestoNombre: tuplaNombre(r.job_id),
-    contactoId: tuplaId(r.work_contact_id),
-  };
-}
+// Etiqueta (contact tag = res.partner.category) que marca a los obreros en Contactos.
+export const ETIQUETA_OBRERO = "Obrero";
 
 export async function obtenerEmpresas(): Promise<Empresa[]> {
   const filas = await ejecutar("res.company", "search_read", [[]], { fields: ["id", "name"], order: "name" });
@@ -39,16 +20,12 @@ export async function obtenerObras(empresaId: number): Promise<Obra[]> {
   return (filas as any[]).map((r) => ({ id: r.id, nombre: r.name }));
 }
 
-export async function obtenerPuestos(): Promise<Puesto[]> {
-  const filas = await ejecutar("hr.job", "search_read", [[]], { fields: ["id", "name"], order: "name" });
-  return (filas as any[]).map((r) => ({ id: r.id, nombre: r.name }));
-}
-
-export async function obtenerObreros(empresaId: number): Promise<Obrero[]> {
-  const filas = await ejecutar("hr.employee", "search_read",
-    [[["company_id", "=", empresaId]]],
-    { fields: ["id", "name", "job_id", "work_contact_id"], order: "name" });
-  return (filas as any[]).map(normalizarObrero);
+// Contactos etiquetados como obreros. Es la fuente de verdad de los obreros.
+export async function obtenerContactosObreros(): Promise<ContactoObrero[]> {
+  const filas = await ejecutar("res.partner", "search_read",
+    [[["category_id.name", "=", ETIQUETA_OBRERO]]],
+    { fields: ["id", "name"], order: "name" });
+  return (filas as any[]).map((r) => ({ odooContactoId: r.id, nombre: r.name }));
 }
 
 export async function obtenerAdelantos(contactoIds: number[], inicio: string, fin: string): Promise<Adelanto[]> {

@@ -1,5 +1,5 @@
 {
-  "id": "adab5fcd-a24e-4120-a215-17d717dcbfda",
+  "id": "e84f5615-436d-4848-a038-edec3b0363e8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -14,20 +14,14 @@
           "primaryKey": true,
           "notNull": true
         },
-        "odoo_puesto_id": {
-          "name": "odoo_puesto_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
         "nombre": {
           "name": "nombre",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "valor_hora": {
-          "name": "valor_hora",
+        "valor_jornal": {
+          "name": "valor_jornal",
           "type": "numeric(12, 2)",
           "primaryKey": false,
           "notNull": true
@@ -43,15 +37,7 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "categorias_odoo_puesto_id_unique": {
-          "name": "categorias_odoo_puesto_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "odoo_puesto_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -72,8 +58,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "odoo_obrero_id": {
-          "name": "odoo_obrero_id",
+        "obrero_id": {
+          "name": "obrero_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -111,16 +97,29 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "horas_obrero_id_obreros_id_fk": {
+          "name": "horas_obrero_id_obreros_id_fk",
+          "tableFrom": "horas",
+          "tableTo": "obreros",
+          "columnsFrom": [
+            "obrero_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "horas_quincena_id_odoo_obrero_id_fecha_odoo_obra_id_unique": {
-          "name": "horas_quincena_id_odoo_obrero_id_fecha_odoo_obra_id_unique",
+        "horas_quincena_id_obrero_id_fecha_odoo_obra_id_unique": {
+          "name": "horas_quincena_id_obrero_id_fecha_odoo_obra_id_unique",
           "nullsNotDistinct": false,
           "columns": [
             "quincena_id",
-            "odoo_obrero_id",
+            "obrero_id",
             "fecha",
             "odoo_obra_id"
           ]
@@ -146,14 +145,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "odoo_obrero_id": {
-          "name": "odoo_obrero_id",
+        "obrero_id": {
+          "name": "obrero_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "valor_hora": {
-          "name": "valor_hora",
+        "valor_jornal": {
+          "name": "valor_jornal",
           "type": "numeric(12, 2)",
           "primaryKey": false,
           "notNull": true
@@ -179,16 +178,107 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "liquidaciones_obrero_id_obreros_id_fk": {
+          "name": "liquidaciones_obrero_id_obreros_id_fk",
+          "tableFrom": "liquidaciones",
+          "tableTo": "obreros",
+          "columnsFrom": [
+            "obrero_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "liquidaciones_quincena_id_odoo_obrero_id_unique": {
-          "name": "liquidaciones_quincena_id_odoo_obrero_id_unique",
+        "liquidaciones_quincena_id_obrero_id_unique": {
+          "name": "liquidaciones_quincena_id_obrero_id_unique",
           "nullsNotDistinct": false,
           "columns": [
             "quincena_id",
-            "odoo_obrero_id"
+            "obrero_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.obreros": {
+      "name": "obreros",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "odoo_contacto_id": {
+          "name": "odoo_contacto_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "categoria_id": {
+          "name": "categoria_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valor_jornal": {
+          "name": "valor_jornal",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "alias_cbu": {
+          "name": "alias_cbu",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "actualizado_en": {
+          "name": "actualizado_en",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "obreros_categoria_id_categorias_id_fk": {
+          "name": "obreros_categoria_id_categorias_id_fk",
+          "tableFrom": "obreros",
+          "tableTo": "categorias",
+          "columnsFrom": [
+            "categoria_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "obreros_odoo_contacto_id_unique": {
+          "name": "obreros_odoo_contacto_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "odoo_contacto_id"
           ]
         }
       },
@@ -256,52 +346,6 @@
             "odoo_empresa_id",
             "fecha_inicio",
             "fecha_fin"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.tarifas_obrero": {
-      "name": "tarifas_obrero",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "odoo_obrero_id": {
-          "name": "odoo_obrero_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "valor_hora": {
-          "name": "valor_hora",
-          "type": "numeric(12, 2)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actualizado_en": {
-          "name": "actualizado_en",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "tarifas_obrero_odoo_obrero_id_unique": {
-          "name": "tarifas_obrero_odoo_obrero_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "odoo_obrero_id"
           ]
         }
       },

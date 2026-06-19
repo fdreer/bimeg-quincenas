@@ -161,7 +161,7 @@ git add -A && git commit -m "test: add vitest setup"
 
 # FASE 1 — Capa de datos (TDD)
 
-> ⚠️ **Actualizado 2026-06-19 (post-brainstorming).** Tras verificar el esquema con el usuario, el código va **en español** y el modelo se amplió a **5 tablas**: `categorias`, `tarifas_obrero` (override por obrero), `quincenas` (+`cerrada_en`), `horas`, `liquidaciones` (snapshot al cerrar: congela tarifa + adelantos). La implementación real está en `src/` (fuente de verdad); los bloques de código de abajo quedan como **referencia conceptual** (nombres en inglés del plan original). Decisiones completas en [PROGRESS.md](../PROGRESS.md). Las Fases 2–4 se adaptan a estos nombres al implementarse.
+> ⚠️ **Actualizado 2026-06-19 (post-brainstorming + rediseño).** El código va **en español** y el modelo cambió respecto del plan original. Esquema real (5 tablas): `categorias` (propia, valor **por jornal**), `obreros` (sincronizados de **Contactos de Odoo** con etiqueta "Obrero" + categoría/override/alias), `quincenas` (+`cerrada_en`), `horas`, `liquidaciones` (snapshot al cerrar). **Obreros ya NO salen de hr.employee ni los puestos de hr.job.** La implementación real está en `src/` (fuente de verdad); los bloques de código de abajo quedan como **referencia conceptual obsoleta**. Decisiones y verificación completas en [PROGRESS.md](../PROGRESS.md).
 
 ### Task 1.1 🤖 IA: Esquema Drizzle
 

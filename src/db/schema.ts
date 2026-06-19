@@ -1,19 +1,21 @@
 import { pgTable, serial, text, integer, numeric, date, timestamp, unique } from "drizzle-orm/pg-core";
 
-// Tarifa BASE por categoría (puesto de Odoo = hr.job).
+// Categorías propias de la app (ya NO ligadas a Odoo). El valor es por JORNAL (día de 8 hs).
 export const categorias = pgTable("categorias", {
   id: serial("id").primaryKey(),
-  odooPuestoId: integer("odoo_puesto_id").notNull().unique(),
   nombre: text("nombre").notNull(),
-  valorHora: numeric("valor_hora", { precision: 12, scale: 2 }).notNull(),
+  valorJornal: numeric("valor_jornal", { precision: 12, scale: 2 }).notNull(),
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });
 
-// Override opcional de valor hora por obrero (pisa el de su categoría).
-export const tarifasObrero = pgTable("tarifas_obrero", {
+// Obreros sincronizados de Contactos de Odoo (etiqueta "Obrero") + datos propios de la app.
+export const obreros = pgTable("obreros", {
   id: serial("id").primaryKey(),
-  odooObreroId: integer("odoo_obrero_id").notNull().unique(),
-  valorHora: numeric("valor_hora", { precision: 12, scale: 2 }).notNull(),
+  odooContactoId: integer("odoo_contacto_id").notNull().unique(), // res.partner
+  nombre: text("nombre").notNull(), // se refresca al sincronizar
+  categoriaId: integer("categoria_id").references(() => categorias.id), // la asignás vos
+  valorJornal: numeric("valor_jornal", { precision: 12, scale: 2 }), // override opcional; null = usa la categoría
+  aliasCbu: text("alias_cbu"), // dato para transferir
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });
 
@@ -31,17 +33,17 @@ export const quincenas = pgTable("quincenas", {
 export const horas = pgTable("horas", {
   id: serial("id").primaryKey(),
   quincenaId: integer("quincena_id").notNull().references(() => quincenas.id, { onDelete: "cascade" }),
-  odooObreroId: integer("odoo_obrero_id").notNull(),
+  obreroId: integer("obrero_id").notNull().references(() => obreros.id),
   odooObraId: integer("odoo_obra_id").notNull(),
   fecha: date("fecha").notNull(),
   horas: numeric("horas", { precision: 5, scale: 2 }).notNull(),
-}, (t) => ({ diaUnico: unique().on(t.quincenaId, t.odooObreroId, t.fecha, t.odooObraId) }));
+}, (t) => ({ diaUnico: unique().on(t.quincenaId, t.obreroId, t.fecha, t.odooObraId) }));
 
-// Snapshot escrito AL CERRAR: congela tarifa y adelantos para fijar el histórico.
+// Snapshot escrito AL CERRAR: congela jornal y adelantos para fijar el histórico.
 export const liquidaciones = pgTable("liquidaciones", {
   id: serial("id").primaryKey(),
   quincenaId: integer("quincena_id").notNull().references(() => quincenas.id, { onDelete: "cascade" }),
-  odooObreroId: integer("odoo_obrero_id").notNull(),
-  valorHora: numeric("valor_hora", { precision: 12, scale: 2 }).notNull(),
+  obreroId: integer("obrero_id").notNull().references(() => obreros.id),
+  valorJornal: numeric("valor_jornal", { precision: 12, scale: 2 }).notNull(),
   adelantos: numeric("adelantos", { precision: 12, scale: 2 }).notNull(),
-}, (t) => ({ obreroUnico: unique().on(t.quincenaId, t.odooObreroId) }));
+}, (t) => ({ obreroUnico: unique().on(t.quincenaId, t.obreroId) }));
