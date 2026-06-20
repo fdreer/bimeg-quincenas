@@ -1,5 +1,8 @@
+import Link from "next/link";
+import { UsersIcon } from "lucide-react";
 import { obtenerEmpresas, obtenerObras } from "@/lib/odoo/queries";
 import { listarObreros } from "@/actions/obreros";
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { CargaForm } from "./carga-form";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +16,17 @@ export default async function CargaPage() {
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6 space-y-4">
-      <h1 className="text-xl font-semibold">Carga de horas</h1>
+      <h1 className="text-xl font-semibold tracking-tight">Carga de horas</h1>
       {obrerosLite.length === 0 ? (
-        <p className="text-muted-foreground">
-          No hay obreros. Andá a <a className="underline" href="/obreros">/obreros</a> y tocá &quot;Actualizar contactos&quot;.
-        </p>
+        <Empty className="mt-4">
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><UsersIcon /></EmptyMedia>
+            <EmptyTitle>No hay obreros todavía</EmptyTitle>
+            <EmptyDescription>
+              Andá a <Link href="/obreros">Obreros</Link> y tocá “Actualizar contactos”.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
         <CargaForm empresas={empresas} obrasPorEmpresa={obrasPorEmpresa} obreros={obrerosLite} />
       )}
