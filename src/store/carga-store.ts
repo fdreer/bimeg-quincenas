@@ -1,39 +1,38 @@
 import { create } from "zustand";
 
-export type FilaBorrador = {
-  id: string;
-  fecha: string;
+// Una asignación = una obra del día, con su propio horario. Varias por día = multi-obra.
+export type Asignacion = { obraId: number | null; desde: string; hasta: string; horas: number };
+
+// Un día de la quincena (fecha fija, precargada). "trabajado" se muestra como "Presente".
+export type DiaBorrador = {
+  id: string; // = fecha (única dentro de la quincena)
+  fecha: string; // "yyyy-MM-dd"
   tipo: "trabajado" | "ausente";
-  obraId: number | null;
-  desde: string; // "HH:MM" o ""
-  hasta: string;
-  horas: number;
-  comentario: string;
+  asignaciones: Asignacion[]; // 1+ obras si Presente; se ignora si Ausente
+  comentario: string; // motivo de ausencia / nota
 };
 
 type CargaState = {
-  filas: FilaBorrador[];
-  agregarFila: (fila: Omit<FilaBorrador, "id">) => void;
-  duplicarFila: (id: string) => void;
-  editarFila: (id: string, patch: Partial<FilaBorrador>) => void;
-  quitarFila: (id: string) => void;
-  reset: () => void;
+  dias: DiaBorrador[];
+  cargarDias: (dias: DiaBorrador[]) => void;
+  editarDia: (id: string, patch: Partial<DiaBorrador>) => void;
+  editarAsignacion: (diaId: string, i: number, patch: Partial<Asignacion>) => void;
+  agregarObra: (diaId: string) => void;
+  quitarObra: (diaId: string, i: number) => void;
 };
 
-let seq = 0;
+const mapDia = (s: CargaState, diaId: string, fn: (d: DiaBorrador) => DiaBorrador) => ({
+  dias: s.dias.map((d) => (d.id === diaId ? fn(d) : d)),
+});
+
 export const useCargaStore = create<CargaState>((set) => ({
-  filas: [],
-  agregarFila: (fila) => set((s) => ({ filas: [...s.filas, { id: `f${++seq}`, ...fila }] })),
-  // Inserta otro bloque del mismo día/obra justo debajo (turno partido), con horario en blanco.
-  duplicarFila: (id) => set((s) => {
-    const i = s.filas.findIndex((f) => f.id === id);
-    if (i === -1) return s;
-    const copia: FilaBorrador = { ...s.filas[i], id: `f${++seq}`, desde: "", hasta: "", horas: 0, comentario: "" };
-    const filas = [...s.filas];
-    filas.splice(i + 1, 0, copia);
-    return { filas };
-  }),
-  editarFila: (id, patch) => set((s) => ({ filas: s.filas.map((f) => (f.id === id ? { ...f, ...patch } : f)) })),
-  quitarFila: (id) => set((s) => ({ filas: s.filas.filter((f) => f.id !== id) })),
-  reset: () => set({ filas: [] }),
+  dias: [],
+  cargarDias: (dias) => set({ dias }),
+  editarDia: (id, patch) => set((s) => mapDia(s, id, (d) => ({ ...d, ...patch }))),
+  editarAsignacion: (diaId, i, patch) =>
+    set((s) => mapDia(s, diaId, (d) => ({ ...d, asignaciones: d.asignaciones.map((a, j) => (j === i ? { ...a, ...patch } : a)) }))),
+  agregarObra: (diaId) =>
+    set((s) => mapDia(s, diaId, (d) => ({ ...d, asignaciones: [...d.asignaciones, { obraId: null, desde: "", hasta: "", horas: 0 }] }))),
+  quitarObra: (diaId, i) =>
+    set((s) => mapDia(s, diaId, (d) => ({ ...d, asignaciones: d.asignaciones.filter((_, j) => j !== i) }))),
 }));

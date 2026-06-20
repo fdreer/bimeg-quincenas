@@ -16,6 +16,15 @@ export async function asegurarQuincena(empresaId: number, anio: number, mes: num
   return creada;
 }
 
+// Trae lo ya guardado de un obrero en esa quincena (para reabrir/editar). [] si la quincena no existe aún.
+export async function obtenerHorasGuardadas(empresaId: number, anio: number, mes: number, mitad: 1 | 2, obreroId: number) {
+  const { inicio, fin } = rangoQuincena(anio, mes, mitad);
+  const q = await db.select().from(quincenas)
+    .where(and(eq(quincenas.odooEmpresaId, empresaId), eq(quincenas.fechaInicio, inicio), eq(quincenas.fechaFin, fin)));
+  if (!q[0]) return [];
+  return db.select().from(horas).where(and(eq(horas.quincenaId, q[0].id), eq(horas.obreroId, obreroId)));
+}
+
 const GuardarHoras = z.object({
   quincenaId: z.number().int(),
   obreroId: z.number().int(),
