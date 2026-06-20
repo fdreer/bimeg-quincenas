@@ -14,11 +14,14 @@ export async function sincronizarObreros() {
     .values(contactos.map((c) => ({ odooContactoId: c.odooContactoId, nombre: c.nombre })))
     .onConflictDoUpdate({ target: obreros.odooContactoId, set: { nombre: sql`excluded.nombre` } });
   revalidatePath("/obreros");
+  revalidatePath("/carga"); // /carga también lista obreros: que vea los nuevos al toque
 }
 
 export async function listarObreros() {
-  const filas = await db.select().from(obreros).orderBy(asc(obreros.nombre));
-  const cats = await db.select().from(categorias).orderBy(asc(categorias.nombre));
+  const [filas, cats] = await Promise.all([
+    db.select().from(obreros).orderBy(asc(obreros.nombre)),
+    db.select().from(categorias).orderBy(asc(categorias.nombre)),
+  ]);
   return { obreros: filas, categorias: cats };
 }
 

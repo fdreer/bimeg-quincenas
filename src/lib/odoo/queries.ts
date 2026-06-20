@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { ejecutar } from "./client";
 
 export type Empresa = { id: number; nombre: string };
@@ -8,17 +9,28 @@ export type Adelanto = { contactoId: number; monto: number; fecha: string };
 // Etiqueta (contact tag = res.partner.category) que marca a los obreros en Contactos.
 export const ETIQUETA_OBRERO = "Obrero";
 
-export async function obtenerEmpresas(): Promise<Empresa[]> {
-  const filas = await ejecutar("res.company", "search_read", [[]], { fields: ["id", "name"], order: "name" });
-  return (filas as any[]).map((r) => ({ id: r.id, nombre: r.name }));
-}
+// Empresas y obras son setup que cambia poco: cacheadas 10 min para sacar el JSON-RPC
+// a Odoo del camino caliente de /carga. Una obra nueva aparece en <=10 min sin tocar nada.
+// ponytail: TTL fijo; si hace falta refresco inmediato, agregar tag + revalidateTag.
+export const obtenerEmpresas = unstable_cache(
+  async (): Promise<Empresa[]> => {
+    const filas = await ejecutar("res.company", "search_read", [[]], { fields: ["id", "name"], order: "name" });
+    return (filas as any[]).map((r) => ({ id: r.id, nombre: r.name }));
+  },
+  ["odoo-empresas"],
+  { revalidate: 600 },
+);
 
-export async function obtenerObras(empresaId: number): Promise<Obra[]> {
-  const filas = await ejecutar("account.analytic.account", "search_read",
-    [[["company_id", "in", [empresaId, false]]]],
-    { fields: ["id", "name"], order: "name" });
-  return (filas as any[]).map((r) => ({ id: r.id, nombre: r.name }));
-}
+export const obtenerObras = unstable_cache(
+  async (empresaId: number): Promise<Obra[]> => {
+    const filas = await ejecutar("account.analytic.account", "search_read",
+      [[["company_id", "in", [empresaId, false]]]],
+      { fields: ["id", "name"], order: "name" });
+    return (filas as any[]).map((r) => ({ id: r.id, nombre: r.name }));
+  },
+  ["odoo-obras"],
+  { revalidate: 600 },
+);
 
 // Contactos etiquetados como obreros. Es la fuente de verdad de los obreros.
 export async function obtenerContactosObreros(): Promise<ContactoObrero[]> {

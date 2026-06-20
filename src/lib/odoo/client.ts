@@ -12,7 +12,12 @@ async function llamarJsonRpc(servicio: string, metodo: string, args: unknown[]) 
     body: JSON.stringify({ jsonrpc: "2.0", method: "call", params: { service: servicio, method: metodo, args }, id: 1 }),
     cache: "no-store",
   });
-  const json = await res.json();
+  // Odoo a veces responde HTML (login expirado, proxy, error) en vez de JSON.
+  // Parseamos a mano para dar un error legible en lugar de "Unexpected token '<'".
+  const texto = await res.text();
+  let json;
+  try { json = JSON.parse(texto); }
+  catch { throw new Error(`Odoo no devolvió JSON (HTTP ${res.status}): ${texto.slice(0, 120)}`); }
   if (json.error) throw new Error(`Odoo error: ${JSON.stringify(json.error)}`);
   return json.result;
 }
