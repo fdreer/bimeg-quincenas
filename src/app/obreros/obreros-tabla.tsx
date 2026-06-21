@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { SearchIcon, PencilIcon, Loader2Icon } from "lucide-react";
+import { SearchIcon, PencilIcon, Loader2Icon, CopyIcon, CheckIcon } from "lucide-react";
 import { toast } from "sonner";
 import { guardarObrero } from "@/actions/obreros";
 import { Badge } from "@/components/ui/badge";
@@ -14,8 +14,9 @@ type ObreroRow = { id: number; nombre: string; categoriaId: number | null; valor
 type CategoriaLite = { id: number; nombre: string; valorJornal: string | null };
 
 const PAGE = 20;
-const COLS = "sm:grid-cols-[minmax(0,1.6fr)_minmax(8rem,auto)_8rem_minmax(0,1fr)_2rem]";
-const money = (n: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+// Obrero (izq) | Categoría | Alias/CBU | acción. Sin `auto`: las columnas miden igual
+// en el header y en las filas, así cada dato queda centrado bajo su título.
+const COLS = "sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.4fr)_2.5rem]";
 
 export function ObrerosTabla({ obreros, categorias }: { obreros: ObreroRow[]; categorias: CategoriaLite[] }) {
   const [query, setQuery] = useState("");
@@ -33,14 +34,6 @@ export function ObrerosTabla({ obreros, categorias }: { obreros: ObreroRow[]; ca
   const visibles = filtradas.slice(pageSafe * PAGE, pageSafe * PAGE + PAGE);
   const editObrero = editId != null ? obreros.find((o) => o.id === editId) ?? null : null;
 
-  // Jornal efectivo: override propio, si no el de la categoría, si no nada.
-  function jornal(o: ObreroRow) {
-    if (o.valorJornal != null) return { v: money(Number(o.valorJornal)), cat: false };
-    const c = o.categoriaId != null ? catById.get(o.categoriaId) : null;
-    if (c?.valorJornal != null) return { v: money(Number(c.valorJornal)), cat: true };
-    return { v: "—", cat: false };
-  }
-
   return (
     <div className="space-y-3">
       <div className="relative">
@@ -49,33 +42,38 @@ export function ObrerosTabla({ obreros, categorias }: { obreros: ObreroRow[]; ca
       </div>
 
       <div className={`hidden gap-3 px-3 text-xs font-medium text-muted-foreground sm:grid ${COLS}`}>
-        <span>Obrero</span><span>Categoría</span><span className="text-right">Jornal</span><span>Alias / CBU</span><span />
+        <span>Obrero</span><span className="text-center">Categoría</span><span className="text-center">Alias / CBU</span><span />
       </div>
 
       <div className="space-y-2 sm:space-y-0">
         {visibles.map((o) => {
           const cat = o.categoriaId != null ? catById.get(o.categoriaId) : null;
-          const j = jornal(o);
           return (
             <div
               key={o.id}
               className={`relative grid grid-cols-1 items-center gap-1.5 rounded-lg border p-3 sm:gap-3 sm:rounded-none sm:border-0 sm:border-b sm:p-3 ${COLS}`}
             >
               <span className="pr-9 font-medium sm:pr-0">{o.nombre}</span>
-              <span>{cat ? <Badge variant="secondary">{cat.nombre}</Badge> : <span className="text-sm text-muted-foreground">— sin categoría —</span>}</span>
-              <span className="text-sm tabular-nums sm:text-right">
-                <span className="text-muted-foreground sm:hidden">Jornal: </span>
-                {j.v}{j.cat && <span className="ml-1 text-xs text-muted-foreground">(cat.)</span>}
+              <span className="sm:text-center">
+                {cat ? <Badge variant="secondary">{cat.nombre}</Badge> : <span className="text-sm text-muted-foreground">— sin categoría —</span>}
               </span>
-              <span className="truncate text-sm text-muted-foreground">
-                <span className="sm:hidden">Alias: </span>{o.aliasCbu || "—"}
+              <span className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground sm:justify-center">
+                <span className="sm:hidden">Alias: </span>
+                {o.aliasCbu ? (
+                  <>
+                    <span className="truncate">{o.aliasCbu}</span>
+                    <CopyButton value={o.aliasCbu} />
+                  </>
+                ) : (
+                  "—"
+                )}
               </span>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Editar ${o.nombre}`}
                 onClick={() => setEditId(o.id)}
-                className="absolute top-2.5 right-2.5 text-muted-foreground sm:static sm:justify-self-end"
+                className="absolute top-2.5 right-2.5 text-muted-foreground sm:static sm:justify-self-center"
               >
                 <PencilIcon />
               </Button>
@@ -102,6 +100,31 @@ export function ObrerosTabla({ obreros, categorias }: { obreros: ObreroRow[]; ca
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Botón de copiar al portapapeles: muestra un check 1.5s como confirmación.
+function CopyButton({ value, className }: { value: string; className?: string }) {
+  const [copiado, setCopiado] = useState(false);
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Copiar alias/CBU"
+      className={`shrink-0 text-muted-foreground ${className ?? ""}`}
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopiado(true);
+          setTimeout(() => setCopiado(false), 1500);
+        } catch {
+          toast.error("No se pudo copiar");
+        }
+      }}
+    >
+      {copiado ? <CheckIcon className="text-green-600" /> : <CopyIcon />}
+    </Button>
   );
 }
 
@@ -153,7 +176,10 @@ function EditarObrero({ obrero, categorias, onListo }: { obrero: ObreroRow; cate
         </div>
         <div className="grid gap-1.5">
           <Label>Alias / CBU</Label>
-          <Input placeholder="alias o CBU" value={aliasCbu} onChange={(e) => setAliasCbu(e.target.value)} />
+          <div className="relative">
+            <Input placeholder="alias o CBU" value={aliasCbu} onChange={(e) => setAliasCbu(e.target.value)} className="pr-9" />
+            {aliasCbu.trim() && <CopyButton value={aliasCbu} className="absolute top-1/2 right-1 -translate-y-1/2" />}
+          </div>
         </div>
       </div>
       <DialogFooter>
