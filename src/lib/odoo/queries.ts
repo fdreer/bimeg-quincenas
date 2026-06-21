@@ -47,3 +47,49 @@ export async function obtenerAdelantos(contactoIds: number[], inicio: string, fi
     { fields: ["partner_id", "amount", "date"] });
   return (filas as any[]).map((r) => ({ contactoId: r.partner_id[0], monto: r.amount, fecha: r.date }));
 }
+
+// Producto "Mano de Obra" (servicio). Cambia poco → cacheado 10 min. null si no existe.
+export const obtenerProductoManoObra = unstable_cache(
+  async (): Promise<number | null> => {
+    const filas = await ejecutar("product.product", "search_read",
+      [[["name", "=", "Mano de Obra"]]],
+      { fields: ["id"], limit: 1 });
+    const f = (filas as any[])[0];
+    return f ? f.id : null;
+  },
+  ["odoo-producto-mano-obra"],
+  { revalidate: 600 },
+);
+
+export type LineaFactura = { productId: number; nombre: string; cantidad: number; precioUnit: number; obraId: number };
+
+// Crea una factura de proveedor en BORRADOR. Una línea por obra, sin IVA, con distribución analítica.
+// Devuelve el id de la account.move creada.
+export async function crearFacturaProveedor(args: {
+  partnerId: number; companyId: number; fechaFactura: string; referencia: string; lineas: LineaFactura[];
+}): Promise<number> {
+  const invoice_line_ids = args.lineas.map((l) => [0, 0, {
+    product_id: l.productId,
+    name: l.nombre,
+    quantity: l.cantidad,
+    price_unit: l.precioUnit,
+    analytic_distribution: { [String(l.obraId)]: 100 },
+    tax_ids: [[6, 0, []]], // sin IVA
+  }]);
+  const id = await ejecutar("account.move", "create", [{
+    move_type: "in_invoice",
+    partner_id: args.partnerId,
+    company_id: args.companyId,
+    invoice_date: args.fechaFactura,
+    ref: args.referencia,
+    invoice_line_ids,
+  }]);
+  return id as number;
+}
+
+// Lee número (name) y estado de facturas por id, para mostrar en /saldos.
+export async function leerFacturas(ids: number[]): Promise<{ id: number; name: string; state: string }[]> {
+  if (ids.length === 0) return [];
+  const filas = await ejecutar("account.move", "read", [ids, ["name", "state"]]);
+  return (filas as any[]).map((r) => ({ id: r.id, name: r.name, state: r.state }));
+}
