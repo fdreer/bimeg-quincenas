@@ -28,7 +28,7 @@ const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "
 const mesItems = Object.fromEntries(MESES.map((n, i) => [String(i + 1), n]));
 
 type FilaPayload = { fecha: string; tipo: "trabajado" | "ausente"; obraId: number | null; desde: string | null; hasta: string | null; horas: number; comentario: string | null };
-type HoraGuardada = Awaited<ReturnType<typeof obtenerHorasGuardadas>>[number];
+type HoraGuardada = Awaited<ReturnType<typeof obtenerHorasGuardadas>>["filas"][number];
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const totalDeDia = (d: DiaBorrador) => r2(d.asignaciones.reduce((a, x) => a + (x.horas || 0), 0));
@@ -71,6 +71,7 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
   const [mitad, setMitad] = useState<1 | 2>(ahora.getDate() <= 15 ? 1 : 2);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [cerrada, setCerrada] = useState(false);
   const { dias, cargarDias, editarDia, editarAsignacion, agregarObra, quitarObra } = useCargaStore();
 
   const obras = obrasPorEmpresa[empresaId] ?? [];
@@ -79,14 +80,14 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
   const anioItems = Object.fromEntries([cy - 2, cy - 1, cy, cy + 1].map((a) => [String(a), String(a)]));
   const rango = rangoQuincena(anio, mes, mitad);
 
-  // Reabrir la quincena de este obrero: trae lo guardado, el resto queda Ausente por defecto.
+  // Reabrir la quincena de este obrero: trae lo guardado + el estado; el resto queda Ausente por defecto.
   useEffect(() => {
     let cancel = false;
     setCargando(true);
     const { inicio, fin } = rangoQuincena(anio, mes, mitad);
     obtenerHorasGuardadas(empresaId, anio, mes, mitad, obreroId)
-      .then((g) => { if (!cancel) cargarDias(construirDias(inicio, fin, g)); })
-      .catch(() => { if (!cancel) cargarDias(construirDias(inicio, fin, [])); })
+      .then((r) => { if (!cancel) { cargarDias(construirDias(inicio, fin, r.filas)); setCerrada(r.estado === "cerrada"); } })
+      .catch(() => { if (!cancel) { cargarDias(construirDias(inicio, fin, [])); setCerrada(false); } })
       .finally(() => { if (!cancel) setCargando(false); });
     return () => { cancel = true; };
   }, [empresaId, obreroId, anio, mes, mitad, cargarDias]);
@@ -129,8 +130,8 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
       }
       const res = await guardarHoras({ quincenaId: q.id, obreroId, filas });
       toast.success(`${res.guardadas} movimiento${res.guardadas === 1 ? "" : "s"} guardado${res.guardadas === 1 ? "" : "s"} · ${obreroNombre}`);
-    } catch {
-      toast.error("No se pudo guardar. Reintentá.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar. Reintentá.");
     } finally {
       setGuardando(false);
     }
@@ -190,6 +191,11 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
       <p className="px-1 text-sm text-muted-foreground">
         Cargando <span className="font-medium text-foreground">{obreroNombre}</span> · {mitad}ª quincena de {MESES[mes - 1]} (días {rango.inicio.slice(8)}–{rango.fin.slice(8)}). Cada día arranca como <span className="font-medium text-foreground">Ausente</span>; marcá los que estuvo Presente.
       </p>
+      {cerrada && (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          Quincena cerrada — solo lectura. Reabrila desde <a className="underline" href="/saldos">Saldos</a> para editar.
+        </p>
+      )}
 
       {cargando ? (
         <div className="flex items-center gap-2 px-1 py-10 text-sm text-muted-foreground">
@@ -263,7 +269,7 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" onClick={limpiar} disabled={cargando}>Limpiar</Button>
-          <Button onClick={onGuardar} disabled={guardando || cargando || !obreroId}>
+          <Button onClick={onGuardar} disabled={guardando || cargando || !obreroId || cerrada}>
             {guardando && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
             Guardar
           </Button>
