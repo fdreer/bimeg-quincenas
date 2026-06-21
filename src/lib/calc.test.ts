@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -65,4 +65,24 @@ test("horasEntre con medias horas", () => {
 test("horasEntre devuelve 0 si falta un horario o el rango es inválido", () => {
   expect(horasEntre("", "")).toBe(0);
   expect(horasEntre("17:00", "08:00")).toBe(0);
+});
+
+test("etiquetaQuincena: 1ª quincena (día 1)", () => {
+  expect(etiquetaQuincena("2026-06-01")).toBe("1ª quincena · Jun 2026");
+});
+test("etiquetaQuincena: 2ª quincena (día 16)", () => {
+  expect(etiquetaQuincena("2026-06-16")).toBe("2ª quincena · Jun 2026");
+});
+test("etiquetaQuincena: otro mes (febrero)", () => {
+  expect(etiquetaQuincena("2026-02-16")).toBe("2ª quincena · Feb 2026");
+});
+
+test("diasTrabajados: cuenta días distintos trabajados (multi-obra mismo día = 1)", () => {
+  const filasDias = [
+    { fecha: "2026-06-01", tipo: "trabajado" }, // obra A
+    { fecha: "2026-06-01", tipo: "trabajado" }, // obra B, mismo día
+    { fecha: "2026-06-02", tipo: "trabajado" },
+    { fecha: "2026-06-03", tipo: "ausente" },   // no cuenta
+  ];
+  expect(diasTrabajados(filasDias)).toBe(2);
 });

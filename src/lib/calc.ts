@@ -52,3 +52,19 @@ export function costoPorObra(filas: FilaCalc[], tarifa: (obreroId: number) => nu
 export function saldo(devengado: number, adelantos: number): number {
   return devengado - adelantos;
 }
+
+const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+
+/** Etiqueta legible de una quincena a partir de su fecha de inicio ("yyyy-mm-dd"). */
+export function etiquetaQuincena(fechaInicio: string): string {
+  const [anio, mes, dia] = fechaInicio.split("-").map(Number);
+  const mitad = dia <= 15 ? "1ª" : "2ª";
+  return `${mitad} quincena · ${MESES[mes - 1]} ${anio}`;
+}
+
+/** Cantidad de días distintos con al menos un bloque trabajado. */
+export function diasTrabajados(filas: { fecha: string; tipo: string }[]): number {
+  const dias = new Set<string>();
+  for (const f of filas) if (f.tipo === "trabajado") dias.add(f.fecha);
+  return dias.size;
+}
