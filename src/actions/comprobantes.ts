@@ -33,7 +33,9 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
   const liqByObrero = new Map(liqs.map((l) => [l.obreroId, l]));
   const nombreObra = new Map(obras.map((o) => [o.id, o.nombre]));
   const etiqueta = etiquetaQuincena(q.fechaInicio);
-  const objetivo = obreroIds ?? liqs.map((l) => l.obreroId);
+  // dedup: registrarComprobantes es server action (borde de confianza); un obreroId repetido
+  // crearía dos facturas y dejaría un borrador huérfano en Odoo. Set lo evita en una línea.
+  const objetivo = [...new Set(obreroIds ?? liqs.map((l) => l.obreroId))];
 
   const resultados: ResultadoObrero[] = [];
   for (const obreroId of objetivo) {
