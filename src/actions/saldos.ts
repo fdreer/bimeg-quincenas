@@ -107,7 +107,7 @@ export async function construirSaldos(quincenaId: number) {
   const empresaNombre = empresas.find((e) => e.id === q.odooEmpresaId)?.nombre ?? `Empresa #${q.odooEmpresaId}`;
 
   return {
-    quincena: { id: q.id, etiqueta: etiquetaQuincena(q.fechaInicio), empresaNombre, fechaInicio: q.fechaInicio, fechaFin: q.fechaFin },
+    quincena: { id: q.id, etiqueta: etiquetaQuincena(q.fechaInicio), empresaNombre, estado: q.estado, fechaInicio: q.fechaInicio, fechaFin: q.fechaFin },
     saldos,
     costos: costosList,
     totales,
