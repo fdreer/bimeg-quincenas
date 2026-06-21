@@ -11,8 +11,8 @@ export async function sincronizarObreros() {
   const contactos = await obtenerContactosObreros();
   if (contactos.length === 0) return;
   await db.insert(obreros)
-    .values(contactos.map((c) => ({ odooContactoId: c.odooContactoId, nombre: c.nombre })))
-    .onConflictDoUpdate({ target: obreros.odooContactoId, set: { nombre: sql`excluded.nombre` } });
+    .values(contactos.map((c) => ({ odooContactoId: c.odooContactoId, nombre: c.nombre, dni: c.dni })))
+    .onConflictDoUpdate({ target: obreros.odooContactoId, set: { nombre: sql`excluded.nombre`, dni: sql`excluded.dni` } });
   revalidatePath("/obreros");
   revalidatePath("/carga"); // /carga también lista obreros: que vea los nuevos al toque
 }

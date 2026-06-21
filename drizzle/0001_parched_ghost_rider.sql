@@ -1,0 +1,1 @@
+ALTER TABLE "obreros" ADD COLUMN "dni" text;

@@ -3,7 +3,7 @@ import { ejecutar } from "./client";
 
 export type Empresa = { id: number; nombre: string };
 export type Obra = { id: number; nombre: string };
-export type ContactoObrero = { odooContactoId: number; nombre: string };
+export type ContactoObrero = { odooContactoId: number; nombre: string; dni: string | null };
 export type Adelanto = { contactoId: number; monto: number; fecha: string };
 
 // Etiqueta (contact tag = res.partner.category) que marca a los obreros en Contactos.
@@ -36,8 +36,8 @@ export const obtenerObras = unstable_cache(
 export async function obtenerContactosObreros(): Promise<ContactoObrero[]> {
   const filas = await ejecutar("res.partner", "search_read",
     [[["category_id.name", "=", ETIQUETA_OBRERO]]],
-    { fields: ["id", "name"], order: "name" });
-  return (filas as any[]).map((r) => ({ odooContactoId: r.id, nombre: r.name }));
+    { fields: ["id", "name", "vat"], order: "name" });
+  return (filas as any[]).map((r) => ({ odooContactoId: r.id, nombre: r.name, dni: r.vat || null }));
 }
 
 export async function obtenerAdelantos(contactoIds: number[], inicio: string, fin: string): Promise<Adelanto[]> {

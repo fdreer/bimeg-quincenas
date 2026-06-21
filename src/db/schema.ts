@@ -16,6 +16,7 @@ export const obreros = pgTable("obreros", {
   categoriaId: integer("categoria_id").references(() => categorias.id), // la asignás vos
   valorJornal: numeric("valor_jornal", { precision: 12, scale: 2 }), // override opcional; null = usa la categoría
   aliasCbu: text("alias_cbu"), // dato para transferir
+  dni: text("dni"), // identificación; se trae de Odoo (vat) al sincronizar, no editable
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });
 
