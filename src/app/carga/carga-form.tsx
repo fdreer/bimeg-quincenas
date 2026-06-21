@@ -265,7 +265,7 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
           <Button variant="ghost" onClick={limpiar} disabled={cargando}>Limpiar</Button>
           <Button onClick={onGuardar} disabled={guardando || cargando || !obreroId}>
             {guardando && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
-            Guardar quincena
+            Guardar
           </Button>
         </div>
       </div>

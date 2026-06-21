@@ -713,7 +713,7 @@ export function CargaForm({ companyId, obreros, obras }: { companyId: number; ob
 
       <div className="flex gap-2">
         <Button variant="secondary" onClick={() => addRow(new Date().toISOString().slice(0, 10))}>+ Día</Button>
-        <Button onClick={onSave} disabled={rows.length === 0}>Guardar quincena</Button>
+        <Button onClick={onSave} disabled={rows.length === 0}>Guardar</Button>
         <Button variant="ghost" onClick={reset}>Limpiar</Button>
       </div>
       {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
