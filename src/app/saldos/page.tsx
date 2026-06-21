@@ -1,5 +1,6 @@
 import { ReceiptTextIcon } from "lucide-react";
 import { listarQuincenas, construirSaldos } from "@/actions/saldos";
+import { estadoComprobantes } from "@/actions/comprobantes";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { SaldosTabla } from "./saldos-tabla";
 
@@ -25,7 +26,10 @@ export default async function SaldosPage({ searchParams }: { searchParams: Promi
   }
 
   const elegida = sp.q && lista.some((q) => String(q.id) === sp.q) ? Number(sp.q) : lista[0].id;
-  const data = await construirSaldos(elegida);
+  const [data, registros] = await Promise.all([
+    construirSaldos(elegida),
+    estadoComprobantes(elegida),
+  ]);
   if (!data) return <main className="mx-auto max-w-5xl p-4 sm:p-6">Quincena no encontrada.</main>;
 
   return (
@@ -35,9 +39,11 @@ export default async function SaldosPage({ searchParams }: { searchParams: Promi
         quincenas={lista}
         quincenaId={elegida}
         empresaNombre={data.quincena.empresaNombre}
+        estado={data.quincena.estado}
         saldos={data.saldos}
         costos={data.costos}
         totales={data.totales}
+        registros={registros}
       />
     </main>
   );

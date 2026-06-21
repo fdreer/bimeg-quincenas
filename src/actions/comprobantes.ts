@@ -5,8 +5,7 @@ import { obtenerProductoManoObra, crearFacturaProveedor, leerFacturas, obtenerOb
 import { valorHora, construirLineasComprobante, etiquetaQuincena } from "@/lib/calc";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-
-export const EMPRESA_FACTURACION = 2; // BIMEG B — ver "Bordes" en el diseño.
+import { EMPRESA_FACTURACION } from "@/lib/constantes";
 
 type ResultadoObrero = {
   obreroId: number; nombre: string;

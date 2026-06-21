@@ -1,17 +1,16 @@
 "use client";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRightIcon } from "lucide-react";
+import { ChevronRightIcon, Loader2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cerrarQuincena, reabrirQuincena } from "@/actions/cierre";
+import { registrarComprobantes } from "@/actions/comprobantes";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
-
-// ponytail: placeholder. Cuando definamos la lógica de Odoo, enganchar acá la server action.
-const registrarPronto = (que: string) => toast.info(`Registrar ${que} en Odoo — próximamente`);
 
 type Detalle = { fecha: string; obra: string | null; horas: number; tipo: string; comentario: string | null };
 type SaldoRow = {
@@ -22,24 +21,55 @@ type SaldoRow = {
 type Costo = { obra: string; costo: number };
 type Totales = { devengado: number; adelantos: number; saldo: number; costo: number };
 type Quincena = { id: number; etiqueta: string };
+type Registro = { facturaId: number; numero: string; estadoOdoo: string };
 
-// Las 3 columnas de plata son 1fr iguales (mismo ancho, flexibles); días/horas/registrar
-// con ancho fijo. Como ninguna columna varía entre header, filas y totales, todo queda
-// alineado bajo su título. El fix clave vs antes: la col Registrar es fija, no `auto`.
-const GRID = "sm:grid-cols-[1.75rem_minmax(0,1.4fr)_3.5rem_3.5rem_repeat(3,minmax(5rem,1fr))_5.5rem]";
+// Igual que antes + última columna (Odoo) un poco más ancha para el botón/numero.
+const GRID = "sm:grid-cols-[1.75rem_minmax(0,1.4fr)_3.5rem_3.5rem_repeat(3,minmax(5rem,1fr))_6.5rem]";
 
-export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, costos, totales }: {
-  quincenas: Quincena[]; quincenaId: number; empresaNombre: string;
-  saldos: SaldoRow[]; costos: Costo[]; totales: Totales;
+export function SaldosTabla({ quincenas, quincenaId, empresaNombre, estado, saldos, costos, totales, registros }: {
+  quincenas: Quincena[]; quincenaId: number; empresaNombre: string; estado: string;
+  saldos: SaldoRow[]; costos: Costo[]; totales: Totales; registros: Record<number, Registro>;
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState<number | null>(null);
+  const [pendiente, startTransition] = useTransition();
+  const cerrada = estado === "cerrada";
   const items = Object.fromEntries(quincenas.map((q) => [String(q.id), q.etiqueta]));
+
+  function cerrar() {
+    if (!confirm("Cerrar la quincena congela las tarifas y bloquea la carga. ¿Continuar?")) return;
+    startTransition(async () => {
+      try { await cerrarQuincena(quincenaId); toast.success("Quincena cerrada"); router.refresh(); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo cerrar"); }
+    });
+  }
+  function reabrir() {
+    startTransition(async () => {
+      try { await reabrirQuincena(quincenaId); toast.success("Quincena reabierta"); router.refresh(); }
+      catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo reabrir"); }
+    });
+  }
+  function registrar(obreroIds?: number[]) {
+    startTransition(async () => {
+      try {
+        const res = await registrarComprobantes(quincenaId, obreroIds);
+        const creados = res.filter((r) => r.estado === "creado").length;
+        const errores = res.filter((r) => r.estado === "error");
+        if (creados) toast.success(`${creados} comprobante${creados === 1 ? "" : "s"} en borrador`);
+        if (errores.length) toast.error(`${errores.length} con error: ${errores.map((e) => e.nombre).join(", ")}`);
+        if (!creados && !errores.length) toast.info("Sin comprobantes nuevos para crear");
+        router.refresh();
+      } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo registrar"); }
+    });
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{empresaNombre}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">{empresaNombre}</p>
+          <Badge variant={cerrada ? "default" : "secondary"}>{cerrada ? "Cerrada" : "Borrador"}</Badge>
+        </div>
         <Select items={items} value={String(quincenaId)} onValueChange={(v) => { if (v) router.push(`/saldos?q=${v}`); }}>
           <SelectTrigger className="w-full sm:w-80"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -54,7 +84,17 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
             <p className="text-sm text-muted-foreground">Total a pagar</p>
             <p className={`text-2xl font-semibold tabular-nums ${totales.saldo < 0 ? "text-destructive" : ""}`}>{money(totales.saldo)}</p>
           </div>
-          <Button onClick={() => registrarPronto("todos los pagos")} className="w-full sm:w-auto">Registrar</Button>
+          <div className="flex items-center gap-2">
+            {pendiente && <Loader2Icon className="size-4 animate-spin text-muted-foreground" />}
+            {cerrada ? (
+              <>
+                <Button variant="ghost" onClick={reabrir} disabled={pendiente}>Reabrir</Button>
+                <Button onClick={() => registrar()} disabled={pendiente} className="w-full sm:w-auto">Registrar todo en Odoo</Button>
+              </>
+            ) : (
+              <Button onClick={cerrar} disabled={pendiente} className="w-full sm:w-auto">Cerrar quincena</Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -65,13 +105,14 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
           <span /><span>Obrero</span>
           <span className="text-center">Días</span><span className="text-center">Horas</span>
           <span className="text-center">Devengado</span><span className="text-center">Adelantos</span><span className="text-center">A pagar</span>
-          <span />
+          <span className="text-center">Odoo</span>
         </div>
 
         {saldos.length === 0 && <p className="px-3 py-8 text-center text-sm text-muted-foreground">No hay horas cargadas en esta quincena.</p>}
 
         {saldos.map((s) => {
           const open = abierto === s.obreroId;
+          const reg = registros[s.obreroId];
           return (
             <div key={s.obreroId} className="rounded-lg border sm:rounded-none sm:border-0 sm:border-b">
               <div className={`grid grid-cols-1 items-center gap-1.5 p-3 sm:gap-3 ${GRID}`}>
@@ -95,14 +136,17 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
                 <span className={`text-sm font-semibold tabular-nums sm:text-center ${s.saldo < 0 ? "text-destructive" : ""}`}>
                   <span className="font-normal text-muted-foreground sm:hidden">A pagar: </span>{money(s.saldo)}
                 </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => registrarPronto(`el pago de ${s.nombre}`)}
-                  className="w-full"
-                >
-                  Registrar
-                </Button>
+                <div className="sm:text-center">
+                  {reg ? (
+                    <Badge variant="secondary" title={`Factura Odoo #${reg.facturaId} (${reg.estadoOdoo})`}>
+                      {reg.numero !== "/" ? reg.numero : `#${reg.facturaId}`}
+                    </Badge>
+                  ) : cerrada && !s.sinTarifa ? (
+                    <Button variant="outline" size="sm" onClick={() => registrar([s.obreroId])} disabled={pendiente} className="w-full">Registrar</Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </div>
               </div>
 
               {open && (
