@@ -3,9 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// Carga primero: es la pantalla de uso diario. Obreros/Categorías son setup.
+// Carga primero: pantalla de uso diario. Saldos para revisar/pagar. Obreros/Categorías son setup.
 const LINKS = [
   { href: "/carga", label: "Carga" },
+  { href: "/saldos", label: "Saldos" },
   { href: "/obreros", label: "Obreros" },
   { href: "/categorias", label: "Categorías" },
 ];
