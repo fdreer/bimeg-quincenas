@@ -23,8 +23,10 @@ type Costo = { obra: string; costo: number };
 type Totales = { devengado: number; adelantos: number; saldo: number; costo: number };
 type Quincena = { id: number; etiqueta: string };
 
-// Última columna `auto` = botón Registrar por fila.
-const GRID = "sm:grid-cols-[2rem_minmax(0,1.4fr)_3.5rem_3.5rem_repeat(3,minmax(6rem,1fr))_auto]";
+// Las 3 columnas de plata son 1fr iguales (mismo ancho, flexibles); días/horas/registrar
+// con ancho fijo. Como ninguna columna varía entre header, filas y totales, todo queda
+// alineado bajo su título. El fix clave vs antes: la col Registrar es fija, no `auto`.
+const GRID = "sm:grid-cols-[1.75rem_minmax(0,1.4fr)_3.5rem_3.5rem_repeat(3,minmax(5rem,1fr))_5.5rem]";
 
 export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, costos, totales }: {
   quincenas: Quincena[]; quincenaId: number; empresaNombre: string;
@@ -61,8 +63,8 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
 
         <div className={`hidden gap-3 px-3 text-xs font-medium text-muted-foreground sm:grid ${GRID}`}>
           <span /><span>Obrero</span>
-          <span className="text-right">Días</span><span className="text-right">Horas</span>
-          <span className="text-right">Devengado</span><span className="text-right">Adelantos</span><span className="text-right">A pagar</span>
+          <span className="text-center">Días</span><span className="text-center">Horas</span>
+          <span className="text-center">Devengado</span><span className="text-center">Adelantos</span><span className="text-center">A pagar</span>
           <span />
         </div>
 
@@ -77,7 +79,7 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
                   onClick={() => setAbierto(open ? null : s.obreroId)}
                   aria-expanded={open}
                   aria-label={`${open ? "Cerrar" : "Ver"} detalle de ${s.nombre}`}
-                  className="flex w-fit items-center gap-1 rounded-md py-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                  className="flex w-fit cursor-pointer items-center gap-1 rounded-md py-0.5 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <ChevronRightIcon className={`size-4 transition-transform ${open ? "rotate-90" : ""}`} />
                   <span className="text-xs sm:hidden">{open ? "Ocultar detalle" : "Ver detalle"}</span>
@@ -86,18 +88,18 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
                   {s.nombre}
                   {s.sinTarifa && <Badge variant="destructive" className="ml-2 align-middle text-[10px]">sin tarifa</Badge>}
                 </span>
-                <span className="text-sm tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">Días: </span>{s.dias}</span>
-                <span className="text-sm tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">Horas: </span>{s.horas}</span>
-                <span className="text-sm tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">Devengado: </span>{money(s.devengado)}</span>
-                <span className="text-sm tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">Adelantos: </span>{money(s.adelantos)}</span>
-                <span className={`text-sm font-semibold tabular-nums sm:text-right ${s.saldo < 0 ? "text-destructive" : ""}`}>
+                <span className="text-sm tabular-nums sm:text-center"><span className="text-muted-foreground sm:hidden">Días: </span>{s.dias}</span>
+                <span className="text-sm tabular-nums sm:text-center"><span className="text-muted-foreground sm:hidden">Horas: </span>{s.horas}</span>
+                <span className="text-sm tabular-nums sm:text-center"><span className="text-muted-foreground sm:hidden">Devengado: </span>{money(s.devengado)}</span>
+                <span className="text-sm tabular-nums sm:text-center"><span className="text-muted-foreground sm:hidden">Adelantos: </span>{money(s.adelantos)}</span>
+                <span className={`text-sm font-semibold tabular-nums sm:text-center ${s.saldo < 0 ? "text-destructive" : ""}`}>
                   <span className="font-normal text-muted-foreground sm:hidden">A pagar: </span>{money(s.saldo)}
                 </span>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => registrarPronto(`el pago de ${s.nombre}`)}
-                  className="w-full sm:w-auto sm:justify-self-end"
+                  className="w-full"
                 >
                   Registrar
                 </Button>
@@ -130,9 +132,9 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
         {saldos.length > 0 && (
           <div className={`grid grid-cols-1 gap-1.5 px-3 pt-2 text-sm font-semibold sm:gap-3 ${GRID}`}>
             <span /><span>Total</span><span className="hidden sm:block" /><span className="hidden sm:block" />
-            <span className="tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">Devengado: </span>{money(totales.devengado)}</span>
-            <span className="tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">Adelantos: </span>{money(totales.adelantos)}</span>
-            <span className="tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">A pagar: </span>{money(totales.saldo)}</span>
+            <span className="tabular-nums sm:text-center"><span className="text-muted-foreground sm:hidden">Devengado: </span>{money(totales.devengado)}</span>
+            <span className="tabular-nums sm:text-center"><span className="text-muted-foreground sm:hidden">Adelantos: </span>{money(totales.adelantos)}</span>
+            <span className="tabular-nums sm:text-center"><span className="text-muted-foreground sm:hidden">A pagar: </span>{money(totales.saldo)}</span>
             <span className="hidden sm:block" />
           </div>
         )}
