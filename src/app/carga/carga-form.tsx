@@ -237,7 +237,7 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
                         </Field>
                         <Field label="Desde" hideLabelAt="md"><TimePicker value={a.desde} aria-label="Desde" onChange={(v) => cambiarTiempo(d, i, "desde", v)} /></Field>
                         <Field label="Hasta" hideLabelAt="md"><TimePicker value={a.hasta} aria-label="Hasta" onChange={(v) => cambiarTiempo(d, i, "hasta", v)} /></Field>
-                        <Field label="Horas" hideLabelAt="md"><Input type="number" inputMode="decimal" step="0.5" value={a.horas} aria-label="Horas" onChange={(e) => editarAsignacion(d.id, i, { horas: Number(e.target.value) })} /></Field>
+                        <Field label="Horas" hideLabelAt="md"><Input type="number" inputMode="decimal" step="0.5" value={a.horas} aria-label="Horas" readOnly={!!(a.desde && a.hasta)} className={a.desde && a.hasta ? "cursor-default bg-muted/50 text-muted-foreground" : ""} onChange={(e) => editarAsignacion(d.id, i, { horas: Number(e.target.value) })} /></Field>
                         <div className="flex sm:justify-center">
                           <Button variant="ghost" size="icon-sm" onClick={() => quitarObra(d.id, i)} disabled={d.asignaciones.length === 1} className="text-muted-foreground hover:text-destructive" title="Quitar obra" aria-label="Quitar obra"><XIcon /></Button>
                         </div>
