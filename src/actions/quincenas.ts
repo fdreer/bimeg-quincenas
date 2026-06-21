@@ -16,13 +16,14 @@ export async function asegurarQuincena(empresaId: number, anio: number, mes: num
   return creada;
 }
 
-// Trae lo ya guardado de un obrero en esa quincena (para reabrir/editar). [] si la quincena no existe aún.
+// Trae lo ya guardado de un obrero en esa quincena + el estado (para reabrir/editar y bloquear si está cerrada).
 export async function obtenerHorasGuardadas(empresaId: number, anio: number, mes: number, mitad: 1 | 2, obreroId: number) {
   const { inicio, fin } = rangoQuincena(anio, mes, mitad);
-  const q = await db.select().from(quincenas)
+  const [q] = await db.select().from(quincenas)
     .where(and(eq(quincenas.odooEmpresaId, empresaId), eq(quincenas.fechaInicio, inicio), eq(quincenas.fechaFin, fin)));
-  if (!q[0]) return [];
-  return db.select().from(horas).where(and(eq(horas.quincenaId, q[0].id), eq(horas.obreroId, obreroId)));
+  if (!q) return { estado: null as string | null, filas: [] };
+  const filas = await db.select().from(horas).where(and(eq(horas.quincenaId, q.id), eq(horas.obreroId, obreroId)));
+  return { estado: q.estado as string | null, filas };
 }
 
 const GuardarHoras = z.object({
@@ -41,6 +42,9 @@ const GuardarHoras = z.object({
 
 export async function guardarHoras(input: z.infer<typeof GuardarHoras>) {
   const datos = GuardarHoras.parse(input);
+  const [q] = await db.select().from(quincenas).where(eq(quincenas.id, datos.quincenaId));
+  if (!q) throw new Error("Quincena no encontrada");
+  if (q.estado === "cerrada") throw new Error("Quincena cerrada: no se pueden modificar las horas");
   // Reemplaza las filas de ese obrero en esa quincena (idempotente para re-carga).
   await db.delete(horas).where(and(eq(horas.quincenaId, datos.quincenaId), eq(horas.obreroId, datos.obreroId)));
   if (datos.filas.length === 0) return { guardadas: 0 };
