@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -85,4 +85,37 @@ test("diasTrabajados: cuenta días distintos trabajados (multi-obra mismo día =
     { fecha: "2026-06-03", tipo: "ausente" },   // no cuenta
   ];
   expect(diasTrabajados(filasDias)).toBe(2);
+});
+
+const f = (tipo: string, odooObraId: number | null, horas: number) => ({ tipo, odooObraId, horas });
+
+test("construirLineasComprobante: una línea por obra (multi-obra mismo día)", () => {
+  const lineas = construirLineasComprobante(
+    [f("trabajado", 10, 4), f("trabajado", 20, 4)],
+    100, // precio/hora
+  );
+  expect(lineas).toEqual([
+    { obraId: 10, horas: 4, precioUnit: 100 },
+    { obraId: 20, horas: 4, precioUnit: 100 },
+  ]);
+});
+
+test("construirLineasComprobante: suma horas de la misma obra en varios bloques", () => {
+  const lineas = construirLineasComprobante(
+    [f("trabajado", 10, 4), f("trabajado", 10, 4)],
+    100,
+  );
+  expect(lineas).toEqual([{ obraId: 10, horas: 8, precioUnit: 100 }]);
+});
+
+test("construirLineasComprobante: ignora ausencias y filas sin obra", () => {
+  const lineas = construirLineasComprobante(
+    [f("trabajado", 10, 4), f("ausente", null, 0), f("trabajado", null, 3)],
+    100,
+  );
+  expect(lineas).toEqual([{ obraId: 10, horas: 4, precioUnit: 100 }]);
+});
+
+test("construirLineasComprobante: sin tarifa (precio 0) → sin líneas", () => {
+  expect(construirLineasComprobante([f("trabajado", 10, 4)], 0)).toEqual([]);
 });

@@ -68,3 +68,25 @@ export function diasTrabajados(filas: { fecha: string; tipo: string }[]): number
   for (const f of filas) if (f.tipo === "trabajado") dias.add(f.fecha);
   return dias.size;
 }
+
+export type LineaComprobante = { obraId: number; horas: number; precioUnit: number };
+
+/**
+ * Líneas de factura de un obrero: una por obra, sumando las horas trabajadas en cada una.
+ * `precioHora` es la tarifa/hora congelada del obrero (igual en todas las líneas).
+ * Ignora ausencias y filas sin obra. Si la tarifa es 0 → sin líneas (no se factura).
+ */
+export function construirLineasComprobante(
+  filas: { tipo: string; odooObraId: number | null; horas: number }[],
+  precioHora: number,
+): LineaComprobante[] {
+  if (precioHora <= 0) return [];
+  const porObra = new Map<number, number>();
+  for (const f of filas) {
+    if (f.tipo !== "trabajado" || f.odooObraId == null) continue;
+    porObra.set(f.odooObraId, (porObra.get(f.odooObraId) ?? 0) + f.horas);
+  }
+  return [...porObra.entries()]
+    .map(([obraId, horas]) => ({ obraId, horas, precioUnit: precioHora }))
+    .sort((a, b) => a.obraId - b.obraId);
+}
