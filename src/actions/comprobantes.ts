@@ -5,7 +5,7 @@ import { obtenerProductoManoObra, crearFacturaProveedor, leerFacturas, obtenerOb
 import { valorHora, construirLineasComprobante, etiquetaQuincena } from "@/lib/calc";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { EMPRESA_FACTURACION } from "@/lib/constantes";
+import { EMPRESA_BIMEG } from "@/lib/constantes";
 
 type ResultadoObrero = {
   obreroId: number; nombre: string;
@@ -54,7 +54,7 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
     try {
       const facturaId = await crearFacturaProveedor({
         partnerId: o.odooContactoId,
-        companyId: EMPRESA_FACTURACION,
+        companyId: EMPRESA_BIMEG,
         fechaFactura: q.fechaFin,
         referencia: `${etiqueta} · ${o.nombre}`,
         lineas: lineas.map((l) => ({

@@ -108,7 +108,7 @@ src/
 
 ## Bordes a cubrir
 
-- **Empresa de la factura vs empresa de la quincena:** la quincena ya tiene `odooEmpresaId`, pero por decisión la factura va a **BIMEG B (id 2)**. ⚠️ Si la quincena es de BIMEG CONSTRUCTORA, las obras (cuentas analíticas) pueden no pertenecer a BIMEG B. A confirmar al primer registro real; `EMPRESA_FACTURACION` es una constante de una línea si hay que cambiar el criterio.
+- ✅ **Empresa: siempre BIMEG B (id 2).** RESUELTO 2026-06-21: toda la app quedó bloqueada a BIMEG B (`EMPRESA_BIMEG` en `src/lib/constantes.ts`). Se sacó el selector de empresa de `/carga`, las quincenas se crean solo para BIMEG B y `/saldos` solo lista BIMEG B. El borde cross-company ya no existe: nunca se opera BIMEG CONSTRUCTORA.
 - **Obrero sin tarifa** (0) → no se factura; se reporta.
 - **Producto "Mano de Obra" inexistente / nombre distinto** → error claro al registrar (no romper en silencio).
 - **Doble registración** → idempotente vía `odooFacturaId`.

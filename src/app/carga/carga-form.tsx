@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Field } from "@/components/field";
 import { TimePicker } from "@/components/time-picker";
 import { toast } from "sonner";
-import type { Empresa, Obra } from "@/lib/odoo/queries";
+import type { Obra } from "@/lib/odoo/queries";
+import { EMPRESA_BIMEG } from "@/lib/constantes";
 
 // Grilla de una asignación (obra del día): se apila en mobile, inline desde sm.
 const ALOC_COLS = "sm:grid-cols-[minmax(8rem,1fr)_7rem_7rem_4.5rem_2rem]";
@@ -58,13 +59,12 @@ function construirDias(inicio: string, fin: string, guardadas: HoraGuardada[]): 
   });
 }
 
-export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
-  empresas: Empresa[];
-  obrasPorEmpresa: Record<number, Obra[]>;
+export function CargaForm({ obras, obreros }: {
+  obras: Obra[];
   obreros: ObreroLite[];
 }) {
   const ahora = new Date();
-  const [empresaId, setEmpresaId] = useState<number>(empresas[0]?.id ?? 0);
+  const empresaId = EMPRESA_BIMEG; // única empresa operada; ya no se elige
   const [obreroId, setObreroId] = useState<number>(obreros[0]?.id ?? 0);
   const [anio, setAnio] = useState(ahora.getFullYear());
   const [mes, setMes] = useState(ahora.getMonth() + 1);
@@ -74,7 +74,6 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
   const [cerrada, setCerrada] = useState(false);
   const { dias, cargarDias, editarDia, editarAsignacion, agregarObra, quitarObra } = useCargaStore();
 
-  const obras = obrasPorEmpresa[empresaId] ?? [];
   const obraItems = record(obras);
   const cy = ahora.getFullYear();
   const anioItems = Object.fromEntries([cy - 2, cy - 1, cy, cy + 1].map((a) => [String(a), String(a)]));
@@ -147,13 +146,6 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
     <div className="space-y-4 pb-2">
       <Card size="sm">
         <CardContent className="flex flex-wrap items-end gap-4">
-          <div className="grid gap-1.5 w-full sm:w-auto">
-            <Label>Empresa</Label>
-            <Select items={record(empresas)} value={String(empresaId)} onValueChange={(v) => setEmpresaId(Number(v))}>
-              <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
-              <SelectContent>{empresas.map((e) => <SelectItem key={e.id} value={String(e.id)}>{e.nombre}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
           <div className="grid gap-1.5 w-full sm:w-auto">
             <Label>Obrero</Label>
             <Select items={record(obreros)} value={String(obreroId)} onValueChange={(v) => setObreroId(Number(v))}>

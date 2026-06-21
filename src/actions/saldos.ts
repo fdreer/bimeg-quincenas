@@ -6,19 +6,15 @@ import {
   jornalEfectivo, valorHora, devengadoPorObrero, costoPorObra, saldo,
   diasTrabajados, etiquetaQuincena, type FilaCalc,
 } from "@/lib/calc";
+import { EMPRESA_BIMEG } from "@/lib/constantes";
 import { desc, eq } from "drizzle-orm";
 
-/** Todas las quincenas existentes (ambas empresas), recientes primero, con etiqueta legible. */
+/** Quincenas de BIMEG B (única empresa operada), recientes primero, con etiqueta legible. */
 export async function listarQuincenas() {
-  const [qs, empresas] = await Promise.all([
-    db.select().from(quincenas).orderBy(desc(quincenas.fechaInicio)),
-    obtenerEmpresas(),
-  ]);
-  const nombreEmpresa = new Map(empresas.map((e) => [e.id, e.nombre]));
-  return qs.map((q) => ({
-    id: q.id,
-    etiqueta: `${nombreEmpresa.get(q.odooEmpresaId) ?? `Empresa #${q.odooEmpresaId}`} · ${etiquetaQuincena(q.fechaInicio)}`,
-  }));
+  const qs = await db.select().from(quincenas)
+    .where(eq(quincenas.odooEmpresaId, EMPRESA_BIMEG))
+    .orderBy(desc(quincenas.fechaInicio));
+  return qs.map((q) => ({ id: q.id, etiqueta: etiquetaQuincena(q.fechaInicio) }));
 }
 
 export async function construirSaldos(quincenaId: number) {

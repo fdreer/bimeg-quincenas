@@ -1,2 +1,3 @@
-// Constantes de negocio compartidas entre server actions y otras capas.
-export const EMPRESA_FACTURACION = 2; // BIMEG B — ver "Bordes" en el diseño.
+// Única empresa operada: BIMEG B (company id 2 en Odoo). Toda la app — carga, saldos y
+// comprobantes — usa esta empresa; nunca BIMEG CONSTRUCTORA. Decisión 2026-06-21.
+export const EMPRESA_BIMEG = 2;

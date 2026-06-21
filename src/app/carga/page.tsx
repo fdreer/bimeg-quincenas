@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { UsersIcon } from "lucide-react";
-import { obtenerEmpresas, obtenerObras } from "@/lib/odoo/queries";
+import { obtenerObras } from "@/lib/odoo/queries";
+import { EMPRESA_BIMEG } from "@/lib/constantes";
 import { listarObreros } from "@/actions/obreros";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { CargaForm } from "./carga-form";
@@ -8,9 +9,7 @@ import { CargaForm } from "./carga-form";
 export const dynamic = "force-dynamic";
 
 export default async function CargaPage() {
-  const empresas = await obtenerEmpresas();
-  const obrasPorEmpresa: Record<number, Awaited<ReturnType<typeof obtenerObras>>> = {};
-  await Promise.all(empresas.map(async (e) => { obrasPorEmpresa[e.id] = await obtenerObras(e.id); }));
+  const obras = await obtenerObras(EMPRESA_BIMEG);
   const { obreros } = await listarObreros();
   const obrerosLite = obreros.map((o) => ({ id: o.id, nombre: o.nombre }));
 
@@ -28,7 +27,7 @@ export default async function CargaPage() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <CargaForm empresas={empresas} obrasPorEmpresa={obrasPorEmpresa} obreros={obrerosLite} />
+        <CargaForm obras={obras} obreros={obrerosLite} />
       )}
     </main>
   );
