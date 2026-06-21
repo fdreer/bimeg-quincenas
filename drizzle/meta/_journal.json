@@ -15,6 +15,13 @@
       "when": 1782011611258,
       "tag": "0001_parched_ghost_rider",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782082063670,
+      "tag": "0002_organic_wallop",
+      "breakpoints": true
     }
   ]
 }

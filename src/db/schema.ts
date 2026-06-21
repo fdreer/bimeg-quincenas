@@ -46,10 +46,13 @@ export const horas = pgTable("horas", {
 });
 
 // Snapshot escrito AL CERRAR: congela jornal y adelantos para fijar el histórico.
+// Al registrar en Odoo se completa odooFacturaId (y odooFacturaNumero al publicarse).
 export const liquidaciones = pgTable("liquidaciones", {
   id: serial("id").primaryKey(),
   quincenaId: integer("quincena_id").notNull().references(() => quincenas.id, { onDelete: "cascade" }),
   obreroId: integer("obrero_id").notNull().references(() => obreros.id),
   valorJornal: numeric("valor_jornal", { precision: 12, scale: 2 }).notNull(),
   adelantos: numeric("adelantos", { precision: 12, scale: 2 }).notNull(),
+  odooFacturaId: integer("odoo_factura_id"),       // account.move id (siempre, aun en borrador)
+  odooFacturaNumero: text("odoo_factura_numero"),  // número fiscal; se llena al publicar en Odoo
 }, (t) => ({ obreroUnico: unique().on(t.quincenaId, t.obreroId) }));
