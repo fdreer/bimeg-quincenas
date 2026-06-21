@@ -1,8 +1,8 @@
 import { UsersIcon } from "lucide-react";
-import { listarObreros, sincronizarObreros } from "@/actions/obreros";
-import { Button } from "@/components/ui/button";
+import { listarObreros } from "@/actions/obreros";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty";
 import { ObrerosTabla } from "./obreros-tabla";
+import { ActualizarContactos } from "./actualizar-contactos";
 
 export const dynamic = "force-dynamic"; // lee datos vivos de la DB en cada request
 
@@ -12,9 +12,7 @@ export default async function ObrerosPage() {
     <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold tracking-tight">Obreros</h1>
-        <form action={sincronizarObreros}>
-          <Button type="submit" variant="secondary">Actualizar contactos</Button>
-        </form>
+        <ActualizarContactos />
       </div>
 
       {categorias.length === 0 && (
@@ -31,9 +29,7 @@ export default async function ObrerosPage() {
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <form action={sincronizarObreros}>
-              <Button type="submit" variant="secondary">Actualizar contactos</Button>
-            </form>
+            <ActualizarContactos />
           </EmptyContent>
         </Empty>
       ) : (

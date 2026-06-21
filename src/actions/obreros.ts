@@ -6,15 +6,16 @@ import { asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // Botón "Actualizar contactos": trae de Odoo los contactos etiquetados "Obrero" y hace upsert.
-// Solo refresca el nombre; preserva categoría, override y alias ya cargados.
+// Refresca nombre y DNI; preserva categoría, override y alias ya cargados. Devuelve cuántos.
 export async function sincronizarObreros() {
   const contactos = await obtenerContactosObreros();
-  if (contactos.length === 0) return;
+  if (contactos.length === 0) return 0;
   await db.insert(obreros)
     .values(contactos.map((c) => ({ odooContactoId: c.odooContactoId, nombre: c.nombre, dni: c.dni })))
     .onConflictDoUpdate({ target: obreros.odooContactoId, set: { nombre: sql`excluded.nombre`, dni: sql`excluded.dni` } });
   revalidatePath("/obreros");
   revalidatePath("/carga"); // /carga también lista obreros: que vea los nuevos al toque
+  return contactos.length;
 }
 
 export async function listarObreros() {
