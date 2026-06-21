@@ -40,3 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude code / agent tooling (caches locales, no van al repo)
+.claude/
+.agents/
+skills-lock.json
