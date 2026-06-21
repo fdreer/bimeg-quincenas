@@ -160,21 +160,21 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
               <SelectContent>{obreros.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5 w-full sm:w-auto">
+          <div className="grid flex-1 gap-1.5 sm:w-auto sm:flex-none">
             <Label>Año</Label>
             <Select items={anioItems} value={String(anio)} onValueChange={(v) => setAnio(Number(v))}>
               <SelectTrigger className="w-full sm:w-28"><SelectValue /></SelectTrigger>
               <SelectContent>{Object.keys(anioItems).map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5 w-full sm:w-auto">
+          <div className="grid flex-1 gap-1.5 sm:w-auto sm:flex-none">
             <Label>Mes</Label>
             <Select items={mesItems} value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
               <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
               <SelectContent>{MESES.map((n, i) => <SelectItem key={n} value={String(i + 1)}>{n}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="grid gap-1.5 w-full sm:w-auto">
+          <div className="grid flex-1 gap-1.5 sm:w-auto sm:flex-none">
             <Label>Quincena</Label>
             <Select items={{ "1": "1ª (1–15)", "2": "2ª (16–fin)" }} value={String(mitad)} onValueChange={(v) => setMitad(Number(v) as 1 | 2)}>
               <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
@@ -254,8 +254,8 @@ export function CargaForm({ empresas, obrasPorEmpresa, obreros }: {
         </div>
       )}
 
-      {/* Barra fija: totales + guardar siempre a mano, también en listas largas y mobile. */}
-      <div className="sticky bottom-0 z-30 -mx-4 mt-2 flex flex-wrap items-center justify-between gap-3 border-t bg-background/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+      {/* Barra fija: totales + guardar siempre a mano. En mobile se apoya sobre la bottom bar de navegación. */}
+      <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 -mx-4 mt-2 flex flex-wrap items-center justify-between gap-3 border-t bg-background/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 md:bottom-0">
         <div className="flex items-center gap-4 text-sm tabular-nums">
           <span><span className="font-semibold">{diasTrab}</span> <span className="text-muted-foreground">{diasTrab === 1 ? "día" : "días"}</span></span>
           <span><span className="font-semibold">{horas}</span> <span className="text-muted-foreground">hs</span></span>

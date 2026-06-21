@@ -29,7 +29,7 @@ export default function RootLayout({
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full pb-[calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0">
         <Nav />
         {children}
         <Toaster theme="light" position="top-center" offset="68px" mobileOffset="68px" />

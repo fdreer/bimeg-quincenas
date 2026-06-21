@@ -10,7 +10,7 @@ export default async function ObrerosPage() {
   const { obreros, categorias } = await listarObreros();
   return (
     <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Obreros</h1>
         <ActualizarContactos />
       </div>
