@@ -2,15 +2,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRightIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
 
+// ponytail: placeholder. Cuando definamos la lógica de Odoo, enganchar acá la server action.
+const registrarPronto = (que: string) => toast.info(`Registrar ${que} en Odoo — próximamente`);
+
 type Detalle = { fecha: string; obra: string | null; horas: number; tipo: string; comentario: string | null };
 type SaldoRow = {
-  obreroId: number; nombre: string; aliasCbu: string | null;
+  obreroId: number; nombre: string; aliasCbu: string | null; dni: string | null;
   dias: number; horas: number; devengado: number; adelantos: number; saldo: number;
   sinTarifa: boolean; detalle: Detalle[];
 };
@@ -18,7 +23,8 @@ type Costo = { obra: string; costo: number };
 type Totales = { devengado: number; adelantos: number; saldo: number; costo: number };
 type Quincena = { id: number; etiqueta: string };
 
-const GRID = "sm:grid-cols-[2rem_minmax(0,1.4fr)_3.5rem_3.5rem_repeat(3,minmax(6rem,1fr))]";
+// Última columna `auto` = botón Registrar por fila.
+const GRID = "sm:grid-cols-[2rem_minmax(0,1.4fr)_3.5rem_3.5rem_repeat(3,minmax(6rem,1fr))_auto]";
 
 export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, costos, totales }: {
   quincenas: Quincena[]; quincenaId: number; empresaNombre: string;
@@ -40,6 +46,16 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
         </Select>
       </div>
 
+      {saldos.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">Total a pagar</p>
+            <p className={`text-2xl font-semibold tabular-nums ${totales.saldo < 0 ? "text-destructive" : ""}`}>{money(totales.saldo)}</p>
+          </div>
+          <Button onClick={() => registrarPronto("todos los pagos")} className="w-full sm:w-auto">Registrar</Button>
+        </div>
+      )}
+
       <section className="space-y-2">
         <h2 className="text-sm font-medium text-muted-foreground">Saldo por obrero</h2>
 
@@ -47,6 +63,7 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
           <span /><span>Obrero</span>
           <span className="text-right">Días</span><span className="text-right">Horas</span>
           <span className="text-right">Devengado</span><span className="text-right">Adelantos</span><span className="text-right">A pagar</span>
+          <span />
         </div>
 
         {saldos.length === 0 && <p className="px-3 py-8 text-center text-sm text-muted-foreground">No hay horas cargadas en esta quincena.</p>}
@@ -55,13 +72,16 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
           const open = abierto === s.obreroId;
           return (
             <div key={s.obreroId} className="rounded-lg border sm:rounded-none sm:border-0 sm:border-b">
-              <button
-                onClick={() => setAbierto(open ? null : s.obreroId)}
-                aria-expanded={open}
-                aria-label={`${open ? "Cerrar" : "Ver"} detalle de ${s.nombre}`}
-                className={`grid w-full grid-cols-1 items-center gap-1.5 p-3 text-left sm:gap-3 ${GRID}`}
-              >
-                <ChevronRightIcon className={`size-4 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
+              <div className={`grid grid-cols-1 items-center gap-1.5 p-3 sm:gap-3 ${GRID}`}>
+                <button
+                  onClick={() => setAbierto(open ? null : s.obreroId)}
+                  aria-expanded={open}
+                  aria-label={`${open ? "Cerrar" : "Ver"} detalle de ${s.nombre}`}
+                  className="flex w-fit items-center gap-1 rounded-md py-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ChevronRightIcon className={`size-4 transition-transform ${open ? "rotate-90" : ""}`} />
+                  <span className="text-xs sm:hidden">{open ? "Ocultar detalle" : "Ver detalle"}</span>
+                </button>
                 <span className="font-medium">
                   {s.nombre}
                   {s.sinTarifa && <Badge variant="destructive" className="ml-2 align-middle text-[10px]">sin tarifa</Badge>}
@@ -73,11 +93,24 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
                 <span className={`text-sm font-semibold tabular-nums sm:text-right ${s.saldo < 0 ? "text-destructive" : ""}`}>
                   <span className="font-normal text-muted-foreground sm:hidden">A pagar: </span>{money(s.saldo)}
                 </span>
-              </button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => registrarPronto(`el pago de ${s.nombre}`)}
+                  className="w-full sm:w-auto sm:justify-self-end"
+                >
+                  Registrar
+                </Button>
+              </div>
 
               {open && (
                 <div className="border-t bg-muted/30 px-3 py-2 text-sm sm:pl-11">
-                  {s.aliasCbu && <p className="mb-2 text-xs text-muted-foreground">Alias/CBU: <span className="font-mono">{s.aliasCbu}</span></p>}
+                  {(s.dni || s.aliasCbu) && (
+                    <p className="mb-2 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+                      {s.dni && <span>DNI: <span className="font-mono text-foreground">{s.dni}</span></span>}
+                      {s.aliasCbu && <span>Alias/CBU: <span className="font-mono text-foreground">{s.aliasCbu}</span></span>}
+                    </p>
+                  )}
                   <ul className="space-y-1">
                     {s.detalle.map((d, i) => (
                       <li key={i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 tabular-nums">
@@ -100,6 +133,7 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, saldos, cost
             <span className="tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">Devengado: </span>{money(totales.devengado)}</span>
             <span className="tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">Adelantos: </span>{money(totales.adelantos)}</span>
             <span className="tabular-nums sm:text-right"><span className="text-muted-foreground sm:hidden">A pagar: </span>{money(totales.saldo)}</span>
+            <span className="hidden sm:block" />
           </div>
         )}
       </section>

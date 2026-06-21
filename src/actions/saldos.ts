@@ -73,6 +73,7 @@ export async function construirSaldos(quincenaId: number) {
       obreroId: o.id,
       nombre: o.nombre,
       aliasCbu: o.aliasCbu,
+      dni: o.dni,
       dias: diasTrabajados(suyas),
       horas: suyas.filter((f) => f.tipo === "trabajado").reduce((s, f) => s + Number(f.horas), 0),
       devengado: dev,
@@ -116,7 +117,7 @@ export async function construirSaldos(quincenaId: number) {
 // Tipos del reporte (re-export para la vista)
 type Detalle = { fecha: string; obra: string | null; horas: number; tipo: string; comentario: string | null };
 type SaldoRow = {
-  obreroId: number; nombre: string; aliasCbu: string | null;
+  obreroId: number; nombre: string; aliasCbu: string | null; dni: string | null;
   dias: number; horas: number; devengado: number; adelantos: number; saldo: number;
   sinTarifa: boolean; detalle: Detalle[];
 };
