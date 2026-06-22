@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function CargaPage() {
   const obras = await obtenerObras(EMPRESA_BIMEG);
   const { obreros } = await listarObreros();
-  const obrerosLite = obreros.map((o) => ({ id: o.id, nombre: o.nombre }));
+  const obrerosLite = obreros.map((o) => ({ id: o.id, nombre: o.nombre, dni: o.dni }));
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-6 space-y-4">

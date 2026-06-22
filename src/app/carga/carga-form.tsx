@@ -1,18 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
-import { Loader2Icon, PlusIcon, XIcon } from "lucide-react";
+import { ArrowRightIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { useCargaStore, type Asignacion, type DiaBorrador } from "@/store/carga-store";
-import { asegurarQuincena, guardarHoras, obtenerHorasGuardadas } from "@/actions/quincenas";
-import { horasEntre, rangoQuincena, HORAS_JORNAL } from "@/lib/calc";
+import { asegurarQuincena, guardarHoras, obtenerHorasGuardadas, obtenerEstadoCarga } from "@/actions/quincenas";
+import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, type EstadoCargaObrero } from "@/lib/calc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Field } from "@/components/field";
 import { TimePicker } from "@/components/time-picker";
+import { ObreroCombobox } from "./obrero-combobox";
 import { toast } from "sonner";
 import type { Obra } from "@/lib/odoo/queries";
 import { EMPRESA_BIMEG } from "@/lib/constantes";
@@ -22,7 +24,7 @@ const ALOC_COLS = "sm:grid-cols-[minmax(8rem,1fr)_7rem_7rem_4.5rem_2rem]";
 const DOW = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const TIPO_ITEMS = { trabajado: "Presente", ausente: "Ausente" };
 
-type ObreroLite = { id: number; nombre: string };
+type ObreroLite = { id: number; nombre: string; dni: string | null };
 const record = <T extends { id: number; nombre: string }>(xs: T[]) => Object.fromEntries(xs.map((x) => [String(x.id), x.nombre]));
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -72,7 +74,9 @@ export function CargaForm({ obras, obreros }: {
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [cerrada, setCerrada] = useState(false);
-  const { dias, cargarDias, editarDia, editarAsignacion, agregarObra, quitarObra } = useCargaStore();
+  // Estado de carga de TODA la quincena (quién falta), no solo del obrero abierto.
+  const [estado, setEstado] = useState<{ cerrada: boolean; porObrero: Record<number, EstadoCargaObrero> }>({ cerrada: false, porObrero: {} });
+  const { dias, dirty, cargarDias, marcarLimpio, marcarSucio, editarDia, editarAsignacion, agregarObra, quitarObra } = useCargaStore();
 
   const obraItems = record(obras);
   const cy = ahora.getFullYear();
@@ -90,6 +94,32 @@ export function CargaForm({ obras, obreros }: {
       .finally(() => { if (!cancel) setCargando(false); });
     return () => { cancel = true; };
   }, [empresaId, obreroId, anio, mes, mitad, cargarDias]);
+
+  // Estado del roster (no depende del obrero abierto): se refresca al cambiar de período.
+  useEffect(() => {
+    let cancel = false;
+    obtenerEstadoCarga(empresaId, anio, mes, mitad)
+      .then((r) => { if (!cancel) setEstado(r); })
+      .catch(() => { if (!cancel) setEstado({ cerrada: false, porObrero: {} }); });
+    return () => { cancel = true; };
+  }, [empresaId, anio, mes, mitad]);
+
+  // Aviso del navegador si cerrás/recargás con cambios sin guardar.
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => { if (useCargaStore.getState().dirty) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, []);
+
+  // Guard contra pérdida de datos: cambiar de obrero/período recarga del server y pisa lo no guardado.
+  // ponytail: window.confirm es el guard más barato y confiable; subir a un AlertDialog si molesta.
+  function intentarCambiar(fn: () => void) {
+    if (useCargaStore.getState().dirty && !window.confirm("Tenés cambios sin guardar en este obrero. ¿Descartarlos?")) return;
+    fn();
+  }
+
+  const cargados = obreros.filter((o) => (estado.porObrero[o.id]?.movimientos ?? 0) > 0).length;
+  const pendientes = obreros.length - cargados;
 
   // Totales en vivo.
   const presentes = dias.filter((d) => d.tipo === "trabajado");
@@ -112,7 +142,7 @@ export function CargaForm({ obras, obreros }: {
     editarAsignacion(d.id, i, patch);
   }
 
-  async function onGuardar() {
+  async function guardar(): Promise<boolean> {
     setGuardando(true);
     try {
       const q = await asegurarQuincena(empresaId, anio, mes, mitad);
@@ -128,16 +158,33 @@ export function CargaForm({ obras, obreros }: {
         }
       }
       const res = await guardarHoras({ quincenaId: q.id, obreroId, filas });
+      marcarLimpio();
+      // Refleja el obrero recién guardado en el roster sin re-consultar (mismo cálculo que el server).
+      const e = estadoCargaPorObrero(filas.map((f) => ({ obreroId, tipo: f.tipo, fecha: f.fecha })))[obreroId]
+        ?? { movimientos: 0, diasTrabajados: 0, ultimaFecha: null };
+      setEstado((prev) => ({ ...prev, porObrero: { ...prev.porObrero, [obreroId]: e } }));
       toast.success(`${res.guardadas} movimiento${res.guardadas === 1 ? "" : "s"} guardado${res.guardadas === 1 ? "" : "s"} · ${obreroNombre}`);
+      return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo guardar. Reintentá.");
+      return false;
     } finally {
       setGuardando(false);
     }
   }
 
+  // P6: guardar y saltar al primer obrero que falta cargar (flujo diario del jefe de obra).
+  async function guardarYSiguiente() {
+    if (!(await guardar())) return;
+    // El actual ya quedó cargado; buscá el próximo sin movimientos (excluyéndolo explícitamente).
+    const sig = obreros.find((o) => o.id !== obreroId && !(estado.porObrero[o.id]?.movimientos));
+    if (!sig) { toast.info("No quedan obreros sin cargar en esta quincena."); return; }
+    setObreroId(sig.id); // dirty ya es false → recarga sin pedir confirmación
+  }
+
   function limpiar() {
     cargarDias(construirDias(rango.inicio, rango.fin, []));
+    marcarSucio(); // vaciar es un cambio: hay que guardar para persistirlo
   }
 
   const obreroNombre = obreros.find((o) => o.id === obreroId)?.nombre;
@@ -148,28 +195,25 @@ export function CargaForm({ obras, obreros }: {
         <CardContent className="flex flex-wrap items-end gap-4">
           <div className="grid gap-1.5 w-full sm:w-auto">
             <Label>Obrero</Label>
-            <Select items={record(obreros)} value={String(obreroId)} onValueChange={(v) => setObreroId(Number(v))}>
-              <SelectTrigger className="w-full sm:w-52"><SelectValue /></SelectTrigger>
-              <SelectContent>{obreros.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
-            </Select>
+            <ObreroCombobox obreros={obreros} value={obreroId} estado={estado.porObrero} onSelect={(id) => intentarCambiar(() => setObreroId(id))} />
           </div>
           <div className="grid flex-1 gap-1.5 sm:w-auto sm:flex-none">
             <Label>Año</Label>
-            <Select items={anioItems} value={String(anio)} onValueChange={(v) => setAnio(Number(v))}>
+            <Select items={anioItems} value={String(anio)} onValueChange={(v) => intentarCambiar(() => setAnio(Number(v)))}>
               <SelectTrigger className="w-full sm:w-28"><SelectValue /></SelectTrigger>
               <SelectContent>{Object.keys(anioItems).map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid flex-1 gap-1.5 sm:w-auto sm:flex-none">
             <Label>Mes</Label>
-            <Select items={mesItems} value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
+            <Select items={mesItems} value={String(mes)} onValueChange={(v) => intentarCambiar(() => setMes(Number(v)))}>
               <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
               <SelectContent>{MESES.map((n, i) => <SelectItem key={n} value={String(i + 1)}>{n}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid flex-1 gap-1.5 sm:w-auto sm:flex-none">
             <Label>Quincena</Label>
-            <Select items={{ "1": "1ª (1–15)", "2": "2ª (16–fin)" }} value={String(mitad)} onValueChange={(v) => setMitad(Number(v) as 1 | 2)}>
+            <Select items={{ "1": "1ª (1–15)", "2": "2ª (16–fin)" }} value={String(mitad)} onValueChange={(v) => intentarCambiar(() => setMitad(Number(v) as 1 | 2))}>
               <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">1ª (1–15)</SelectItem>
@@ -179,6 +223,13 @@ export function CargaForm({ obras, obreros }: {
           </div>
         </CardContent>
       </Card>
+
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <Badge variant={pendientes > 0 ? "secondary" : "outline"} className="gap-1">
+          <span className="font-semibold tabular-nums">{pendientes}</span> sin cargar
+        </Badge>
+        <span className="text-sm text-muted-foreground tabular-nums">{cargados}/{obreros.length} cargados · {MESES[mes - 1]} {mitad}ª quincena</span>
+      </div>
 
       <p className="px-1 text-sm text-muted-foreground">
         Cargando <span className="font-medium text-foreground">{obreroNombre}</span> · {mitad}ª quincena de {MESES[mes - 1]} (días {rango.inicio.slice(8)}–{rango.fin.slice(8)}). Cada día arranca como <span className="font-medium text-foreground">Ausente</span>; marcá los que estuvo Presente.
@@ -258,12 +309,17 @@ export function CargaForm({ obras, obreros }: {
           <span><span className="font-semibold">{diasTrab}</span> <span className="text-muted-foreground">{diasTrab === 1 ? "día" : "días"}</span></span>
           <span><span className="font-semibold">{horas}</span> <span className="text-muted-foreground">hs</span></span>
           {ausencias > 0 && <span><span className="font-semibold">{ausencias}</span> <span className="text-muted-foreground">aus.</span></span>}
+          {dirty && <span className="text-amber-600 dark:text-amber-400">sin guardar</span>}
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" onClick={limpiar} disabled={cargando}>Limpiar</Button>
-          <Button onClick={onGuardar} disabled={guardando || cargando || !obreroId || cerrada}>
+          <Button variant="outline" onClick={() => void guardar()} disabled={guardando || cargando || !obreroId || cerrada}>
             {guardando && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
             Guardar
+          </Button>
+          <Button onClick={() => void guardarYSiguiente()} disabled={guardando || cargando || !obreroId || cerrada}>
+            Guardar y siguiente
+            <ArrowRightIcon data-icon="inline-end" />
           </Button>
         </div>
       </div>

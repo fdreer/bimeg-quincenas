@@ -14,7 +14,10 @@ export type DiaBorrador = {
 
 type CargaState = {
   dias: DiaBorrador[];
+  dirty: boolean; // hay ediciones sin guardar (para avisar antes de cambiar de obrero/quincena o cerrar)
   cargarDias: (dias: DiaBorrador[]) => void;
+  marcarLimpio: () => void; // tras guardar
+  marcarSucio: () => void; // tras "Limpiar" (vaciar también es un cambio a persistir)
   editarDia: (id: string, patch: Partial<DiaBorrador>) => void;
   editarAsignacion: (diaId: string, i: number, patch: Partial<Asignacion>) => void;
   agregarObra: (diaId: string) => void;
@@ -23,11 +26,15 @@ type CargaState = {
 
 const mapDia = (s: CargaState, diaId: string, fn: (d: DiaBorrador) => DiaBorrador) => ({
   dias: s.dias.map((d) => (d.id === diaId ? fn(d) : d)),
+  dirty: true,
 });
 
 export const useCargaStore = create<CargaState>((set) => ({
   dias: [],
-  cargarDias: (dias) => set({ dias }),
+  dirty: false,
+  cargarDias: (dias) => set({ dias, dirty: false }), // cargar = estado limpio (viene del server)
+  marcarLimpio: () => set({ dirty: false }),
+  marcarSucio: () => set({ dirty: true }),
   editarDia: (id, patch) => set((s) => mapDia(s, id, (d) => ({ ...d, ...patch }))),
   editarAsignacion: (diaId, i, patch) =>
     set((s) => mapDia(s, diaId, (d) => ({ ...d, asignaciones: d.asignaciones.map((a, j) => (j === i ? { ...a, ...patch } : a)) }))),

@@ -1,7 +1,7 @@
 "use server";
 import { db } from "@/db";
 import { quincenas, horas } from "@/db/schema";
-import { rangoQuincena, horasEntre } from "@/lib/calc";
+import { rangoQuincena, horasEntre, estadoCargaPorObrero, type EstadoCargaObrero } from "@/lib/calc";
 import { requireUser } from "@/lib/auth-server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -27,6 +27,21 @@ export async function obtenerHorasGuardadas(empresaId: number, anio: number, mes
   if (!q) return { estado: null as string | null, filas: [] };
   const filas = await db.select().from(horas).where(and(eq(horas.quincenaId, q.id), eq(horas.obreroId, obreroId)));
   return { estado: q.estado as string | null, filas };
+}
+
+// Estado de carga de TODOS los obreros en una quincena (para el roster: quién falta cargar).
+// Si la quincena todavía no existe, nadie tiene movimientos → todos "sin cargar".
+export async function obtenerEstadoCarga(empresaId: number, anio: number, mes: number, mitad: 1 | 2) {
+  await requireUser();
+  const { inicio, fin } = rangoQuincena(anio, mes, mitad);
+  const [q] = await db.select().from(quincenas)
+    .where(and(eq(quincenas.odooEmpresaId, empresaId), eq(quincenas.fechaInicio, inicio), eq(quincenas.fechaFin, fin)));
+  if (!q) return { cerrada: false, porObrero: {} as Record<number, EstadoCargaObrero> };
+  const filas = await db
+    .select({ obreroId: horas.obreroId, tipo: horas.tipo, fecha: horas.fecha })
+    .from(horas)
+    .where(eq(horas.quincenaId, q.id));
+  return { cerrada: q.estado === "cerrada", porObrero: estadoCargaPorObrero(filas) };
 }
 
 const GuardarHoras = z.object({

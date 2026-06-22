@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -75,6 +75,29 @@ test("etiquetaQuincena: 2ª quincena (día 16)", () => {
 });
 test("etiquetaQuincena: otro mes (febrero)", () => {
   expect(etiquetaQuincena("2026-02-16")).toBe("2ª quincena · Feb 2026");
+});
+
+test("estadoCargaPorObrero: sin filas → obrero no aparece (sin cargar)", () => {
+  expect(estadoCargaPorObrero([])[7]).toBeUndefined();
+});
+test("estadoCargaPorObrero: días distintos trabajados + última fecha (multi-obra mismo día = 1)", () => {
+  const e = estadoCargaPorObrero([
+    { obreroId: 7, tipo: "trabajado", fecha: "2026-06-16" },
+    { obreroId: 7, tipo: "trabajado", fecha: "2026-06-16" }, // misma fecha, 2 obras → 1 día
+    { obreroId: 7, tipo: "trabajado", fecha: "2026-06-17" },
+  ]);
+  expect(e[7]).toEqual({ movimientos: 3, diasTrabajados: 2, ultimaFecha: "2026-06-17" });
+});
+test("estadoCargaPorObrero: una ausencia con motivo cuenta como cargado (0 días trab.)", () => {
+  const e = estadoCargaPorObrero([{ obreroId: 9, tipo: "ausente", fecha: "2026-06-18" }]);
+  expect(e[9]).toEqual({ movimientos: 1, diasTrabajados: 0, ultimaFecha: "2026-06-18" });
+});
+test("estadoCargaPorObrero: ultimaFecha es el máximo aunque las filas vengan desordenadas", () => {
+  const e = estadoCargaPorObrero([
+    { obreroId: 1, tipo: "trabajado", fecha: "2026-06-20" },
+    { obreroId: 1, tipo: "trabajado", fecha: "2026-06-05" },
+  ]);
+  expect(e[1].ultimaFecha).toBe("2026-06-20");
 });
 
 test("diasTrabajados: cuenta días distintos trabajados (multi-obra mismo día = 1)", () => {

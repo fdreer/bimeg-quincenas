@@ -69,6 +69,29 @@ export function diasTrabajados(filas: { fecha: string; tipo: string }[]): number
   return dias.size;
 }
 
+export type EstadoCargaObrero = { movimientos: number; diasTrabajados: number; ultimaFecha: string | null };
+
+/**
+ * Estado de carga de cada obrero en una quincena, derivado de sus movimientos guardados.
+ * `movimientos` 0 (obrero ausente del map) = sin cargar. `ultimaFecha` ("yyyy-MM-dd") = último
+ * día con dato → para mostrar "cargado hasta DD/MM" y que el jefe vea hasta dónde llegó.
+ */
+export function estadoCargaPorObrero(
+  filas: { obreroId: number; tipo: string; fecha: string }[],
+): Record<number, EstadoCargaObrero> {
+  const acc = new Map<number, { mov: number; dias: Set<string>; ult: string | null }>();
+  for (const f of filas) {
+    const e = acc.get(f.obreroId) ?? { mov: 0, dias: new Set<string>(), ult: null };
+    e.mov += 1;
+    if (f.tipo === "trabajado") e.dias.add(f.fecha);
+    if (e.ult == null || f.fecha > e.ult) e.ult = f.fecha; // ISO ordena lexicográficamente
+    acc.set(f.obreroId, e);
+  }
+  const out: Record<number, EstadoCargaObrero> = {};
+  for (const [id, e] of acc) out[id] = { movimientos: e.mov, diasTrabajados: e.dias.size, ultimaFecha: e.ult };
+  return out;
+}
+
 export type LineaComprobante = { obraId: number; horas: number; precioUnit: number };
 
 /**
