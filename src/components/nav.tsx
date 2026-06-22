@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ClockIcon, ReceiptTextIcon, UsersIcon, TagIcon, LogOutIcon, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,13 +22,14 @@ const LINKS_USER: typeof LINKS_ADMIN = [
 
 export function Nav({ user }: { user: NavUser }) {
   const path = usePathname();
-  const router = useRouter();
   const links = user.role === "admin" ? LINKS_ADMIN : LINKS_USER;
   const isActive = (href: string) => path === href || path.startsWith(href + "/");
 
   async function salir() {
+    // ponytail: full reload para que el RSC layout vea la sesión cerrada y oculte el Nav.
+    // Sin esto router.push() reusa el layout en cache con el Nav visible.
     await authClient.signOut({
-      fetchOptions: { onSuccess: () => router.push("/login") },
+      fetchOptions: { onSuccess: () => { window.location.href = "/login"; } },
     });
   }
 
@@ -36,8 +37,10 @@ export function Nav({ user }: { user: NavUser }) {
     <>
       <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-12 max-w-6xl items-center gap-1 px-4 sm:px-6">
-          <Link href={user.role === "admin" ? "/" : "/carga"} className="mr-3 font-semibold tracking-tight">
-            BIMEG <span className="hidden font-normal text-muted-foreground sm:inline">· Quincenas</span>
+          <Link href={user.role === "admin" ? "/" : "/carga"} className="mr-3 flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icono.png" alt="BIMEG" className="h-7 w-auto" />
+            <span className="hidden text-sm font-normal text-muted-foreground sm:inline">· Quincenas</span>
           </Link>
           <nav className="hidden items-center gap-1 text-sm md:flex">
             {links.map((l) => {
@@ -60,7 +63,7 @@ export function Nav({ user }: { user: NavUser }) {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="hidden max-w-[14rem] truncate sm:inline">{user.email}</span>
+            <span className="hidden max-w-[14rem] truncate sm:inline">{user.name}</span>
             <Button variant="ghost" size="icon-sm" aria-label="Salir" onClick={salir}>
               <LogOutIcon />
             </Button>
