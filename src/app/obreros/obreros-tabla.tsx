@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-type ObreroRow = { id: number; nombre: string; categoriaId: number | null; valorJornal: string | null; aliasCbu: string | null };
+type ObreroRow = { id: number; nombre: string; categoriaId: number | null; valorJornal: string | null; aliasCbu: string | null; habilitado: boolean };
 type CategoriaLite = { id: number; nombre: string; valorJornal: string | null };
 
 const PAGE = 20;
@@ -54,7 +54,10 @@ export function ObrerosTabla({ obreros, categorias, puedeEditar = true }: { obre
               key={o.id}
               className={`relative grid grid-cols-1 items-center gap-1.5 rounded-lg border p-3 sm:gap-3 sm:rounded-none sm:border-0 sm:border-b sm:p-3 ${puedeEditar ? COLS : COLS_RO}`}
             >
-              <span className="pr-9 font-medium sm:pr-0">{o.nombre}</span>
+              <span className="pr-9 font-medium sm:pr-0">
+                {o.nombre}
+                {!o.habilitado && <Badge variant="secondary" className="ml-2 align-middle text-[10px]">deshabilitado</Badge>}
+              </span>
               <span className="sm:text-center">
                 {cat ? <Badge variant="secondary">{cat.nombre}</Badge> : <span className="text-sm text-muted-foreground">— sin categoría —</span>}
               </span>
@@ -136,6 +139,7 @@ function EditarObrero({ obrero, categorias, onListo }: { obrero: ObreroRow; cate
   const [categoriaId, setCategoriaId] = useState(obrero.categoriaId != null ? String(obrero.categoriaId) : "");
   const [valorJornal, setValorJornal] = useState(obrero.valorJornal ?? "");
   const [aliasCbu, setAliasCbu] = useState(obrero.aliasCbu ?? "");
+  const [habilitado, setHabilitado] = useState(obrero.habilitado);
   const [guardando, setGuardando] = useState(false);
 
   async function onGuardar() {
@@ -145,6 +149,7 @@ function EditarObrero({ obrero, categorias, onListo }: { obrero: ObreroRow; cate
         categoriaId: categoriaId ? Number(categoriaId) : null,
         valorJornal: valorJornal.trim() ? Number(valorJornal) : null,
         aliasCbu: aliasCbu.trim() ? aliasCbu.trim() : null,
+        habilitado,
       });
       toast.success(`${obrero.nombre} actualizado`);
       onListo();
@@ -162,6 +167,20 @@ function EditarObrero({ obrero, categorias, onListo }: { obrero: ObreroRow; cate
         <DialogDescription>Categoría, jornal y datos de pago.</DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-4">
+        <div className="grid gap-1.5">
+          <Label>Estado</Label>
+          <Select
+            items={{ habilitado: "Habilitado", deshabilitado: "Deshabilitado" }}
+            value={habilitado ? "habilitado" : "deshabilitado"}
+            onValueChange={(v) => setHabilitado(v === "habilitado")}
+          >
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="habilitado">Habilitado</SelectItem>
+              <SelectItem value="deshabilitado">Deshabilitado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="grid gap-1.5">
           <Label>Categoría</Label>
           <Select items={catItems} value={categoriaId} onValueChange={(v) => setCategoriaId(v ?? "")}>
