@@ -3,7 +3,7 @@ import { getSessionCookie } from "better-auth/cookies";
 
 // Solo verifica que exista cookie de sesión. El chequeo de rol se hace en cada
 // page admin con requireAdmin() (la cookie no contiene el rol).
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const cookie = getSessionCookie(req);
   if (!cookie) {
     const url = req.nextUrl.clone();
