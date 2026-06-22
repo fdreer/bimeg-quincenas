@@ -1,7 +1,7 @@
 "use server";
 import { db } from "@/db";
 import { quincenas, horas, obreros, liquidaciones } from "@/db/schema";
-import { obtenerProductoManoObra, crearFacturaProveedor, leerFacturas, obtenerObras } from "@/lib/odoo/queries";
+import { obtenerProductoManoObra, obtenerDiarioCompras, crearFacturaProveedor, leerFacturas, obtenerObras } from "@/lib/odoo/queries";
 import { valorHora, construirLineasComprobante, etiquetaQuincena } from "@/lib/calc";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -20,6 +20,9 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
 
   const productoId = await obtenerProductoManoObra();
   if (productoId == null) throw new Error('No se encontró el producto "Mano de Obra" en Odoo');
+
+  const diarioId = await obtenerDiarioCompras();
+  if (diarioId == null) throw new Error('No se encontró el diario "Compras" en BIMEG B (Odoo)');
 
   const [filas, liqs, obrerosDb, obras] = await Promise.all([
     db.select().from(horas).where(eq(horas.quincenaId, quincenaId)),
@@ -55,7 +58,8 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
       const facturaId = await crearFacturaProveedor({
         partnerId: o.odooContactoId,
         companyId: EMPRESA_BIMEG,
-        fechaFactura: q.fechaFin,
+        journalId: diarioId,
+        fecha: q.fechaFin,
         referencia: `${etiqueta} · ${o.nombre}`,
         lineas: lineas.map((l) => ({
           productId: productoId,

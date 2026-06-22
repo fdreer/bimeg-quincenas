@@ -1,5 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { ejecutar } from "./client";
+import { EMPRESA_BIMEG } from "@/lib/constantes";
 
 export type Empresa = { id: number; nombre: string };
 export type Obra = { id: number; nombre: string };
@@ -61,12 +62,26 @@ export const obtenerProductoManoObra = unstable_cache(
   { revalidate: 600 },
 );
 
+// Diario "Compras" (purchase) de BIMEG B, donde se registran las facturas. Cacheado 10 min. null si no existe.
+export const obtenerDiarioCompras = unstable_cache(
+  async (): Promise<number | null> => {
+    const filas = await ejecutar("account.journal", "search_read",
+      [[["type", "=", "purchase"], ["company_id", "=", EMPRESA_BIMEG], ["name", "=", "Compras"]]],
+      { fields: ["id"], limit: 1 });
+    const f = (filas as any[])[0];
+    return f ? f.id : null;
+  },
+  ["odoo-diario-compras"],
+  { revalidate: 600 },
+);
+
 export type LineaFactura = { productId: number; nombre: string; cantidad: number; precioUnit: number; obraId: number };
 
 // Crea una factura de proveedor en BORRADOR. Una línea por obra, sin IVA, con distribución analítica.
 // Devuelve el id de la account.move creada.
+// `fecha` = último día de la quincena: se usa como fecha de comprobante (invoice_date) y contable (date).
 export async function crearFacturaProveedor(args: {
-  partnerId: number; companyId: number; fechaFactura: string; referencia: string; lineas: LineaFactura[];
+  partnerId: number; companyId: number; journalId: number; fecha: string; referencia: string; lineas: LineaFactura[];
 }): Promise<number> {
   const invoice_line_ids = args.lineas.map((l) => [0, 0, {
     product_id: l.productId,
@@ -80,7 +95,9 @@ export async function crearFacturaProveedor(args: {
     move_type: "in_invoice",
     partner_id: args.partnerId,
     company_id: args.companyId,
-    invoice_date: args.fechaFactura,
+    journal_id: args.journalId,    // diario "Compras"
+    invoice_date: args.fecha,      // fecha de comprobante
+    date: args.fecha,              // fecha contable
     ref: args.referencia,
     invoice_line_ids,
   }]);
