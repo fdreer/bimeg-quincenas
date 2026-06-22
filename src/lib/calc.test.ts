@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -118,4 +118,24 @@ test("construirLineasComprobante: ignora ausencias y filas sin obra", () => {
 
 test("construirLineasComprobante: sin tarifa (precio 0) → sin líneas", () => {
   expect(construirLineasComprobante([f("trabajado", 10, 4)], 0)).toEqual([]);
+});
+
+test("desglosarJornales: 0 horas → 0 jornales, 0 sobrante", () => {
+  expect(desglosarJornales(0)).toEqual({ jornales: 0, sobrante: 0 });
+});
+
+test("desglosarJornales: 16 horas → 2 jornales exactos", () => {
+  expect(desglosarJornales(16)).toEqual({ jornales: 2, sobrante: 0 });
+});
+
+test("desglosarJornales: 20 horas → 2 jornales + 4 horas sobrantes", () => {
+  expect(desglosarJornales(20)).toEqual({ jornales: 2, sobrante: 4 });
+});
+
+test("desglosarJornales: 5 horas → 0 jornales + 5 horas sobrantes", () => {
+  expect(desglosarJornales(5)).toEqual({ jornales: 0, sobrante: 5 });
+});
+
+test("desglosarJornales: horas con decimales (20.5) → 2 jornales + 4.5 sobrante", () => {
+  expect(desglosarJornales(20.5)).toEqual({ jornales: 2, sobrante: 4.5 });
 });

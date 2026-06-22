@@ -66,8 +66,9 @@ export type LineaFactura = { productId: number; nombre: string; cantidad: number
 // Crea una factura de proveedor en BORRADOR. Una línea por obra, sin IVA, con distribución analítica.
 // Devuelve el id de la account.move creada.
 // `fecha` = último día de la quincena: se usa como fecha de comprobante (invoice_date) y contable (date).
+// `narracion` se guarda en el campo "Términos y condiciones" (narration) de la factura.
 export async function crearFacturaProveedor(args: {
-  partnerId: number; companyId: number; journalId: number; fecha: string; referencia: string; lineas: LineaFactura[];
+  partnerId: number; companyId: number; journalId: number; fecha: string; referencia: string; narracion: string; lineas: LineaFactura[];
 }): Promise<number> {
   const invoice_line_ids = args.lineas.map((l) => [0, 0, {
     product_id: l.productId,
@@ -85,14 +86,19 @@ export async function crearFacturaProveedor(args: {
     invoice_date: args.fecha,      // fecha de comprobante
     date: args.fecha,              // fecha contable
     ref: args.referencia,
+    narration: args.narracion,     // Términos y condiciones — desglose de la liquidación
     invoice_line_ids,
   }]);
   return id as number;
 }
 
-// Lee número (name) y estado de facturas por id, para mostrar en /saldos.
+// Lee número (name) y estado de facturas por id. Usa search_read en vez de read para que un id
+// borrado en Odoo simplemente no vuelva (read tiraría MissingError). El caller compara contra
+// los ids pedidos para detectar facturas huérfanas y limpiarlas.
 export async function leerFacturas(ids: number[]): Promise<{ id: number; name: string; state: string }[]> {
   if (ids.length === 0) return [];
-  const filas = await ejecutar("account.move", "read", [ids, ["name", "state"]]);
+  const filas = await ejecutar("account.move", "search_read",
+    [[["id", "in", ids]]],
+    { fields: ["id", "name", "state"] });
   return (filas as any[]).map((r) => ({ id: r.id, name: r.name, state: r.state }));
 }

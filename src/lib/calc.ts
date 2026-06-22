@@ -90,3 +90,13 @@ export function construirLineasComprobante(
     .map(([obraId, horas]) => ({ obraId, horas, precioUnit: precioHora }))
     .sort((a, b) => a.obraId - b.obraId);
 }
+
+/**
+ * Desglosa horas totales en jornales completos (de HORAS_JORNAL hs) + sobrante.
+ * Ej: 20 hs → { jornales: 2, sobrante: 4 }. Útil para narrar la liquidación.
+ */
+export function desglosarJornales(horas: number): { jornales: number; sobrante: number } {
+  const jornales = Math.floor(horas / HORAS_JORNAL);
+  const sobrante = Math.round((horas - jornales * HORAS_JORNAL) * 100) / 100;
+  return { jornales, sobrante };
+}

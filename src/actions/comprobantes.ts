@@ -2,7 +2,7 @@
 import { db } from "@/db";
 import { quincenas, horas, obreros, liquidaciones } from "@/db/schema";
 import { obtenerProductoManoObra, crearFacturaProveedor, leerFacturas, obtenerObras } from "@/lib/odoo/queries";
-import { valorHora, construirLineasComprobante } from "@/lib/calc";
+import { valorHora, construirLineasComprobante, desglosarJornales, etiquetaQuincena, HORAS_JORNAL } from "@/lib/calc";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { EMPRESA_BIMEG, DIARIO_COMPRAS } from "@/lib/constantes";
@@ -33,6 +33,8 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
   const nombreObra = new Map(obras.map((o) => [o.id, o.nombre]));
   // Referencia común del lote: "QUINCENA" + fin de quincena (YYYYMMDD). Ej: QUINCENA20260630.
   const referencia = `QUINCENA${q.fechaFin.replace(/-/g, "")}`;
+  const etiqueta = etiquetaQuincena(q.fechaInicio);
+  const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
   // dedup: registrarComprobantes es server action (borde de confianza); un obreroId repetido
   // crearía dos facturas y dejaría un borrador huérfano en Odoo. Set lo evita en una línea.
   const objetivo = [...new Set(obreroIds ?? liqs.map((l) => l.obreroId))];
@@ -52,6 +54,17 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
     const lineas = construirLineasComprobante(suyas, precioHora);
     if (lineas.length === 0) { resultados.push({ obreroId, nombre: o.nombre, estado: "sin_horas" }); continue; }
 
+    // Términos y condiciones de la factura: desglose legible de la liquidación.
+    const horasTotal = lineas.reduce((s, l) => s + l.horas, 0);
+    const { jornales, sobrante } = desglosarJornales(horasTotal);
+    const totalTrabajado = `${jornales} jornal${jornales === 1 ? "" : "es"}${sobrante > 0 ? ` + ${sobrante} h` : ""}`;
+    const narracion = [
+      `Liquidación: ${etiqueta} — ${o.nombre}`,
+      `Valor jornal: ${money.format(Number(liq.valorJornal))} (${HORAS_JORNAL} hs)`,
+      `Total trabajado: ${totalTrabajado}`,
+      o.aliasCbu ? `Alias/CBU: ${o.aliasCbu}` : null,
+    ].filter(Boolean).join("\n");
+
     try {
       const facturaId = await crearFacturaProveedor({
         partnerId: o.odooContactoId,
@@ -59,6 +72,7 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
         journalId: DIARIO_COMPRAS,
         fecha: q.fechaFin,
         referencia,
+        narracion,
         lineas: lineas.map((l) => ({
           productId: productoId,
           nombre: `Mano de obra — ${nombreObra.get(l.obraId) ?? `#${l.obraId}`}`,
@@ -81,16 +95,27 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
 type Registro = { facturaId: number; numero: string; estadoOdoo: string };
 
 // Estado de las facturas ya registradas (por obrero), leyendo número + estado vivo de Odoo.
+// Sincroniza huérfanos: si un id guardado ya no existe en Odoo (borrado a mano), limpia el
+// odooFacturaId en la DB para que el obrero vuelva a aparecer como no-registrado y se pueda re-registrar.
 export async function estadoComprobantes(quincenaId: number): Promise<Record<number, Registro>> {
   const liqs = await db.select().from(liquidaciones).where(eq(liquidaciones.quincenaId, quincenaId));
   const ids = liqs.map((l) => l.odooFacturaId).filter((x): x is number => x != null);
   const facturas = await leerFacturas(ids);
   const byId = new Map(facturas.map((f) => [f.id, f]));
+
+  for (const l of liqs) {
+    if (l.odooFacturaId != null && !byId.has(l.odooFacturaId)) {
+      await db.update(liquidaciones).set({ odooFacturaId: null, odooFacturaNumero: null })
+        .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, l.obreroId)));
+    }
+  }
+
   const out: Record<number, Registro> = {};
   for (const l of liqs) {
     if (l.odooFacturaId == null) continue;
     const f = byId.get(l.odooFacturaId);
-    out[l.obreroId] = { facturaId: l.odooFacturaId, numero: f?.name ?? "/", estadoOdoo: f?.state ?? "?" };
+    if (!f) continue; // huérfano: ya se limpió arriba, no lo reportamos como registrado
+    out[l.obreroId] = { facturaId: l.odooFacturaId, numero: f.name ?? "/", estadoOdoo: f.state ?? "?" };
   }
   return out;
 }
