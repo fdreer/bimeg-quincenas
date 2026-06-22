@@ -67,7 +67,7 @@ export function CargaForm({ obras, obreros }: {
 }) {
   const ahora = new Date();
   const empresaId = EMPRESA_BIMEG; // única empresa operada; ya no se elige
-  const [obreroId, setObreroId] = useState<number>(obreros[0]?.id ?? 0);
+  const [obreroId, setObreroId] = useState<number>(0); // 0 = ninguno; el usuario elige
   const [anio, setAnio] = useState(ahora.getFullYear());
   const [mes, setMes] = useState(ahora.getMonth() + 1);
   const [mitad, setMitad] = useState<1 | 2>(ahora.getDate() <= 15 ? 1 : 2);
@@ -86,6 +86,7 @@ export function CargaForm({ obras, obreros }: {
   // Reabrir la quincena de este obrero: trae lo guardado + el estado; el resto queda Ausente por defecto.
   useEffect(() => {
     let cancel = false;
+    if (!obreroId) { cargarDias([]); setCerrada(false); setCargando(false); return () => { cancel = true; }; }
     setCargando(true);
     const { inicio, fin } = rangoQuincena(anio, mes, mitad);
     obtenerHorasGuardadas(empresaId, anio, mes, mitad, obreroId)
@@ -231,16 +232,20 @@ export function CargaForm({ obras, obreros }: {
         <span className="text-sm text-muted-foreground tabular-nums">{cargados}/{obreros.length} cargados · {MESES[mes - 1]} {mitad}ª quincena</span>
       </div>
 
-      <p className="px-1 text-sm text-muted-foreground">
-        Cargando <span className="font-medium text-foreground">{obreroNombre}</span> · {mitad}ª quincena de {MESES[mes - 1]} (días {rango.inicio.slice(8)}–{rango.fin.slice(8)}). Cada día arranca como <span className="font-medium text-foreground">Ausente</span>; marcá los que estuvo Presente.
-      </p>
+      {obreroId ? (
+        <p className="px-1 text-sm text-muted-foreground">
+          Cargando <span className="font-medium text-foreground">{obreroNombre}</span> · {mitad}ª quincena de {MESES[mes - 1]} (días {rango.inicio.slice(8)}–{rango.fin.slice(8)}). Cada día arranca como <span className="font-medium text-foreground">Ausente</span>; marcá los que estuvo Presente.
+        </p>
+      ) : (
+        <p className="px-1 text-sm text-muted-foreground">Elegí un obrero para cargar sus horas.</p>
+      )}
       {cerrada && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           Quincena cerrada — solo lectura. Reabrila desde <a className="underline" href="/saldos">Saldos</a> para editar.
         </p>
       )}
 
-      {cargando ? (
+      {!!obreroId && (cargando ? (
         <div className="flex items-center gap-2 px-1 py-10 text-sm text-muted-foreground">
           <Loader2Icon className="animate-spin" /> Cargando datos…
         </div>
@@ -301,7 +306,7 @@ export function CargaForm({ obras, obreros }: {
             );
           })}
         </div>
-      )}
+      ))}
 
       {/* Barra fija: totales + guardar siempre a mano. En mobile se apoya sobre la bottom bar de navegación. */}
       <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 -mx-4 mt-2 flex flex-wrap items-center justify-between gap-3 border-t bg-background/90 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 md:bottom-0">
