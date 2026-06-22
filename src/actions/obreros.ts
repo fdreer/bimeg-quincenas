@@ -32,7 +32,7 @@ export async function listarObreros() {
 
 export async function guardarObrero(
   id: number,
-  datos: { categoriaId: number | null; valorJornal: number | null; aliasCbu: string | null },
+  datos: { categoriaId: number | null; valorJornal: number | null; aliasCbu: string | null; habilitado: boolean },
 ) {
   await requireAdmin();
   await db.update(obreros)
@@ -40,8 +40,10 @@ export async function guardarObrero(
       categoriaId: datos.categoriaId,
       valorJornal: datos.valorJornal != null ? String(datos.valorJornal) : null,
       aliasCbu: datos.aliasCbu,
+      habilitado: datos.habilitado,
       actualizadoEn: sql`now()`,
     })
     .where(eq(obreros.id, id));
   revalidatePath("/obreros");
+  revalidatePath("/carga");
 }

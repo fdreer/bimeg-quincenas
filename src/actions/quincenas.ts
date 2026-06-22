@@ -1,6 +1,6 @@
 "use server";
 import { db } from "@/db";
-import { quincenas, horas } from "@/db/schema";
+import { quincenas, horas, obreros } from "@/db/schema";
 import { rangoQuincena, horasEntre, estadoCargaPorObrero, type EstadoCargaObrero } from "@/lib/calc";
 import { requireUser } from "@/lib/auth-server";
 import { and, eq } from "drizzle-orm";
@@ -64,6 +64,9 @@ export async function guardarHoras(input: z.infer<typeof GuardarHoras>) {
   const [q] = await db.select().from(quincenas).where(eq(quincenas.id, datos.quincenaId));
   if (!q) throw new Error("Quincena no encontrada");
   if (q.estado === "cerrada") throw new Error("Quincena cerrada: no se pueden modificar las horas");
+  const [obrero] = await db.select({ habilitado: obreros.habilitado }).from(obreros).where(eq(obreros.id, datos.obreroId));
+  if (!obrero) throw new Error("Obrero no encontrado");
+  if (!obrero.habilitado) throw new Error("Obrero deshabilitado: no se le pueden cargar horas");
   // Reemplaza las filas de ese obrero en esa quincena (idempotente para re-carga).
   await db.delete(horas).where(and(eq(horas.quincenaId, datos.quincenaId), eq(horas.obreroId, datos.obreroId)));
   if (datos.filas.length === 0) return { guardadas: 0 };
