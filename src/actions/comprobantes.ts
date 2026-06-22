@@ -35,6 +35,8 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
   const referencia = `QUINCENA${q.fechaFin.replace(/-/g, "")}`;
   const etiqueta = etiquetaQuincena(q.fechaInicio);
   const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
+  // narration es Html en Odoo: hay que escapar lo que viene del obrero (nombre, alias) por las dudas.
+  const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
   // dedup: registrarComprobantes es server action (borde de confianza); un obreroId repetido
   // crearía dos facturas y dejaría un borrador huérfano en Odoo. Set lo evita en una línea.
   const objetivo = [...new Set(obreroIds ?? liqs.map((l) => l.obreroId))];
@@ -54,16 +56,16 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
     const lineas = construirLineasComprobante(suyas, precioHora);
     if (lineas.length === 0) { resultados.push({ obreroId, nombre: o.nombre, estado: "sin_horas" }); continue; }
 
-    // Términos y condiciones de la factura: desglose legible de la liquidación.
+    // Términos y condiciones de la factura: desglose legible de la liquidación (HTML, lo renderiza Odoo).
     const horasTotal = lineas.reduce((s, l) => s + l.horas, 0);
     const { jornales, sobrante } = desglosarJornales(horasTotal);
     const totalTrabajado = `${jornales} jornal${jornales === 1 ? "" : "es"}${sobrante > 0 ? ` + ${sobrante} h` : ""}`;
     const narracion = [
-      `Liquidación: ${etiqueta} — ${o.nombre}`,
-      `Valor jornal: ${money.format(Number(liq.valorJornal))} (${HORAS_JORNAL} hs)`,
-      `Total trabajado: ${totalTrabajado}`,
-      o.aliasCbu ? `Alias/CBU: ${o.aliasCbu}` : null,
-    ].filter(Boolean).join("\n");
+      `<p><strong>Liquidación · ${escHtml(etiqueta)} — ${escHtml(o.nombre)}</strong></p>`,
+      `<p><strong>Valor jornal:</strong> ${money.format(Number(liq.valorJornal))} (${HORAS_JORNAL} hs)</p>`,
+      `<p><strong>Total trabajado:</strong> ${totalTrabajado}</p>`,
+      o.aliasCbu ? `<p><strong>Alias/CBU:</strong> ${escHtml(o.aliasCbu)}</p>` : null,
+    ].filter(Boolean).join("");
 
     try {
       const facturaId = await crearFacturaProveedor({
