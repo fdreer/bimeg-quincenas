@@ -1,11 +1,11 @@
 "use server";
 import { db } from "@/db";
 import { quincenas, horas, obreros, liquidaciones } from "@/db/schema";
-import { obtenerProductoManoObra, obtenerDiarioCompras, crearFacturaProveedor, leerFacturas, obtenerObras } from "@/lib/odoo/queries";
-import { valorHora, construirLineasComprobante, etiquetaQuincena } from "@/lib/calc";
+import { obtenerProductoManoObra, crearFacturaProveedor, leerFacturas, obtenerObras } from "@/lib/odoo/queries";
+import { valorHora, construirLineasComprobante } from "@/lib/calc";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { EMPRESA_BIMEG } from "@/lib/constantes";
+import { EMPRESA_BIMEG, DIARIO_COMPRAS } from "@/lib/constantes";
 
 type ResultadoObrero = {
   obreroId: number; nombre: string;
@@ -21,9 +21,6 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
   const productoId = await obtenerProductoManoObra();
   if (productoId == null) throw new Error('No se encontró el producto "Mano de Obra" en Odoo');
 
-  const diarioId = await obtenerDiarioCompras();
-  if (diarioId == null) throw new Error('No se encontró el diario "Compras" en BIMEG B (Odoo)');
-
   const [filas, liqs, obrerosDb, obras] = await Promise.all([
     db.select().from(horas).where(eq(horas.quincenaId, quincenaId)),
     db.select().from(liquidaciones).where(eq(liquidaciones.quincenaId, quincenaId)),
@@ -34,7 +31,8 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
   const obreroById = new Map(obrerosDb.map((o) => [o.id, o]));
   const liqByObrero = new Map(liqs.map((l) => [l.obreroId, l]));
   const nombreObra = new Map(obras.map((o) => [o.id, o.nombre]));
-  const etiqueta = etiquetaQuincena(q.fechaInicio);
+  // Referencia común del lote: "QUINCENA" + fin de quincena (YYYYMMDD). Ej: QUINCENA20260630.
+  const referencia = `QUINCENA${q.fechaFin.replace(/-/g, "")}`;
   // dedup: registrarComprobantes es server action (borde de confianza); un obreroId repetido
   // crearía dos facturas y dejaría un borrador huérfano en Odoo. Set lo evita en una línea.
   const objetivo = [...new Set(obreroIds ?? liqs.map((l) => l.obreroId))];
@@ -58,9 +56,9 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
       const facturaId = await crearFacturaProveedor({
         partnerId: o.odooContactoId,
         companyId: EMPRESA_BIMEG,
-        journalId: diarioId,
+        journalId: DIARIO_COMPRAS,
         fecha: q.fechaFin,
-        referencia: `${etiqueta} · ${o.nombre}`,
+        referencia,
         lineas: lineas.map((l) => ({
           productId: productoId,
           nombre: `Mano de obra — ${nombreObra.get(l.obraId) ?? `#${l.obraId}`}`,

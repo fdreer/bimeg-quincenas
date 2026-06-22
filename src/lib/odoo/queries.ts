@@ -1,6 +1,5 @@
 import { unstable_cache } from "next/cache";
 import { ejecutar } from "./client";
-import { EMPRESA_BIMEG } from "@/lib/constantes";
 
 export type Empresa = { id: number; nombre: string };
 export type Obra = { id: number; nombre: string };
@@ -59,19 +58,6 @@ export const obtenerProductoManoObra = unstable_cache(
     return f ? f.id : null;
   },
   ["odoo-producto-mano-obra"],
-  { revalidate: 600 },
-);
-
-// Diario "Compras" (purchase) de BIMEG B, donde se registran las facturas. Cacheado 10 min. null si no existe.
-export const obtenerDiarioCompras = unstable_cache(
-  async (): Promise<number | null> => {
-    const filas = await ejecutar("account.journal", "search_read",
-      [[["type", "=", "purchase"], ["company_id", "=", EMPRESA_BIMEG], ["name", "=", "Compras"]]],
-      { fields: ["id"], limit: 1 });
-    const f = (filas as any[])[0];
-    return f ? f.id : null;
-  },
-  ["odoo-diario-compras"],
   { revalidate: 600 },
 );
 
