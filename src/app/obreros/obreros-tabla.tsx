@@ -168,20 +168,6 @@ function EditarObrero({ obrero, categorias, onListo }: { obrero: ObreroRow; cate
       </DialogHeader>
       <div className="flex flex-col gap-4">
         <div className="grid gap-1.5">
-          <Label>Estado</Label>
-          <Select
-            items={{ habilitado: "Habilitado", deshabilitado: "Deshabilitado" }}
-            value={habilitado ? "habilitado" : "deshabilitado"}
-            onValueChange={(v) => setHabilitado(v === "habilitado")}
-          >
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="habilitado">Habilitado</SelectItem>
-              <SelectItem value="deshabilitado">Deshabilitado</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-1.5">
           <Label>Categoría</Label>
           <Select items={catItems} value={categoriaId} onValueChange={(v) => setCategoriaId(v ?? "")}>
             <SelectTrigger className="w-full"><SelectValue placeholder="— sin categoría —" /></SelectTrigger>
@@ -202,6 +188,10 @@ function EditarObrero({ obrero, categorias, onListo }: { obrero: ObreroRow; cate
             <Input placeholder="alias o CBU" value={aliasCbu} onChange={(e) => setAliasCbu(e.target.value)} className="pr-9" />
             {aliasCbu.trim() && <CopyButton value={aliasCbu} className="absolute top-1/2 right-1 -translate-y-1/2" />}
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <input id="habilitado-check" type="checkbox" checked={habilitado} onChange={(e) => setHabilitado(e.target.checked)} className="size-4 cursor-pointer accent-primary" />
+          <Label htmlFor="habilitado-check" className="cursor-pointer">Habilitado</Label>
         </div>
       </div>
       <DialogFooter>
