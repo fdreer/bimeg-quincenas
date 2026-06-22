@@ -1,31 +1,46 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ClockIcon, ReceiptTextIcon, UsersIcon, TagIcon, type LucideIcon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ClockIcon, ReceiptTextIcon, UsersIcon, TagIcon, LogOutIcon, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
 
-// Carga primero: pantalla de uso diario. Saldos para revisar/pagar. Obreros/Categorías son setup.
-const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
+type NavUser = { name: string; email: string; role: string };
+
+const LINKS_ADMIN: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/carga", label: "Carga", icon: ClockIcon },
   { href: "/saldos", label: "Saldos", icon: ReceiptTextIcon },
   { href: "/obreros", label: "Obreros", icon: UsersIcon },
   { href: "/categorias", label: "Categorías", icon: TagIcon },
 ];
 
-export function Nav() {
+const LINKS_USER: typeof LINKS_ADMIN = [
+  { href: "/carga", label: "Carga", icon: ClockIcon },
+  { href: "/obreros", label: "Obreros", icon: UsersIcon },
+];
+
+export function Nav({ user }: { user: NavUser }) {
   const path = usePathname();
+  const router = useRouter();
+  const links = user.role === "admin" ? LINKS_ADMIN : LINKS_USER;
   const isActive = (href: string) => path === href || path.startsWith(href + "/");
+
+  async function salir() {
+    await authClient.signOut({
+      fetchOptions: { onSuccess: () => router.push("/login") },
+    });
+  }
 
   return (
     <>
-      {/* Barra superior: marca siempre; links solo en desktop (en mobile navega la bottom bar). */}
       <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
         <div className="mx-auto flex h-12 max-w-6xl items-center gap-1 px-4 sm:px-6">
-          <Link href="/" className="mr-3 font-semibold tracking-tight">
+          <Link href={user.role === "admin" ? "/" : "/carga"} className="mr-3 font-semibold tracking-tight">
             BIMEG <span className="hidden font-normal text-muted-foreground sm:inline">· Quincenas</span>
           </Link>
           <nav className="hidden items-center gap-1 text-sm md:flex">
-            {LINKS.map((l) => {
+            {links.map((l) => {
               const active = isActive(l.href);
               return (
                 <Link
@@ -44,16 +59,24 @@ export function Nav() {
               );
             })}
           </nav>
+          <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="hidden max-w-[14rem] truncate sm:inline">{user.email}</span>
+            <Button variant="ghost" size="icon-sm" aria-label="Salir" onClick={salir}>
+              <LogOutIcon />
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Bottom tab bar: solo mobile. Siempre visible, al alcance del pulgar. */}
       <nav
         aria-label="Secciones"
         className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
       >
-        <div className="mx-auto grid max-w-md grid-cols-4">
-          {LINKS.map((l) => {
+        <div
+          className="mx-auto grid max-w-md"
+          style={{ gridTemplateColumns: `repeat(${links.length}, minmax(0, 1fr))` }}
+        >
+          {links.map((l) => {
             const active = isActive(l.href);
             const Icon = l.icon;
             return (

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cerrarQuincena, reabrirQuincena } from "@/actions/cierre";
 import { registrarComprobantes } from "@/actions/comprobantes";
 
@@ -32,12 +33,13 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, estado, sald
 }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState<number | null>(null);
+  const [confirmarCerrar, setConfirmarCerrar] = useState(false);
   const [pendiente, startTransition] = useTransition();
   const cerrada = estado === "cerrada";
   const items = Object.fromEntries(quincenas.map((q) => [String(q.id), q.etiqueta]));
 
   function cerrar() {
-    if (!confirm("Cerrar la quincena congela las tarifas y bloquea la carga. ¿Continuar?")) return;
+    setConfirmarCerrar(false);
     startTransition(async () => {
       try { await cerrarQuincena(quincenaId); toast.success("Quincena cerrada"); router.refresh(); }
       catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo cerrar"); }
@@ -92,7 +94,7 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, estado, sald
                 <Button onClick={() => registrar()} disabled={pendiente} className="w-full sm:w-auto">Registrar todo en Odoo</Button>
               </>
             ) : (
-              <Button onClick={cerrar} disabled={pendiente} className="w-full sm:w-auto">Cerrar quincena</Button>
+              <Button onClick={() => setConfirmarCerrar(true)} disabled={pendiente} className="w-full sm:w-auto">Cerrar quincena</Button>
             )}
           </div>
         </div>
@@ -202,6 +204,21 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, estado, sald
           </div>
         )}
       </section>
+
+      <Dialog open={confirmarCerrar} onOpenChange={setConfirmarCerrar}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Cerrar la quincena?</DialogTitle>
+            <DialogDescription>
+              Cerrar la quincena congela las tarifas y bloquea la carga de horas. Esta acción se puede revertir con Reabrir.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost">Cancelar</Button>} />
+            <Button onClick={cerrar} disabled={pendiente}>Cerrar quincena</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

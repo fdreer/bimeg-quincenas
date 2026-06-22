@@ -17,8 +17,9 @@ const PAGE = 20;
 // Obrero (izq) | Categoría | Alias/CBU | acción. Sin `auto`: las columnas miden igual
 // en el header y en las filas, así cada dato queda centrado bajo su título.
 const COLS = "sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.4fr)_2.5rem]";
+const COLS_RO = "sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.4fr)]";
 
-export function ObrerosTabla({ obreros, categorias }: { obreros: ObreroRow[]; categorias: CategoriaLite[] }) {
+export function ObrerosTabla({ obreros, categorias, puedeEditar = true }: { obreros: ObreroRow[]; categorias: CategoriaLite[]; puedeEditar?: boolean }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [editId, setEditId] = useState<number | null>(null);
@@ -41,8 +42,8 @@ export function ObrerosTabla({ obreros, categorias }: { obreros: ObreroRow[]; ca
         <Input value={query} onChange={(e) => { setQuery(e.target.value); setPage(0); }} placeholder="Buscar obrero…" className="pl-8" />
       </div>
 
-      <div className={`hidden gap-3 px-3 text-xs font-medium text-muted-foreground sm:grid ${COLS}`}>
-        <span>Obrero</span><span className="text-center">Categoría</span><span className="text-center">Alias / CBU</span><span />
+      <div className={`hidden gap-3 px-3 text-xs font-medium text-muted-foreground sm:grid ${puedeEditar ? COLS : COLS_RO}`}>
+        <span>Obrero</span><span className="text-center">Categoría</span><span className="text-center">Alias / CBU</span>{puedeEditar && <span />}
       </div>
 
       <div className="space-y-2 sm:space-y-0">
@@ -51,7 +52,7 @@ export function ObrerosTabla({ obreros, categorias }: { obreros: ObreroRow[]; ca
           return (
             <div
               key={o.id}
-              className={`relative grid grid-cols-1 items-center gap-1.5 rounded-lg border p-3 sm:gap-3 sm:rounded-none sm:border-0 sm:border-b sm:p-3 ${COLS}`}
+              className={`relative grid grid-cols-1 items-center gap-1.5 rounded-lg border p-3 sm:gap-3 sm:rounded-none sm:border-0 sm:border-b sm:p-3 ${puedeEditar ? COLS : COLS_RO}`}
             >
               <span className="pr-9 font-medium sm:pr-0">{o.nombre}</span>
               <span className="sm:text-center">
@@ -68,15 +69,17 @@ export function ObrerosTabla({ obreros, categorias }: { obreros: ObreroRow[]; ca
                   "—"
                 )}
               </span>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={`Editar ${o.nombre}`}
-                onClick={() => setEditId(o.id)}
-                className="absolute top-2.5 right-2.5 text-muted-foreground sm:static sm:justify-self-center"
-              >
-                <PencilIcon />
-              </Button>
+              {puedeEditar && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Editar ${o.nombre}`}
+                  onClick={() => setEditId(o.id)}
+                  className="absolute top-2.5 right-2.5 text-muted-foreground sm:static sm:justify-self-center"
+                >
+                  <PencilIcon />
+                </Button>
+              )}
             </div>
           );
         })}

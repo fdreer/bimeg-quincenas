@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRightIcon } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { requireUser } from "@/lib/auth-server";
 
 const PASOS = [
   { n: 1, href: "/categorias", title: "Categorías", desc: "Valor del jornal por categoría (HERRERO, OFICIAL, CAPATAZ…)." },
@@ -8,7 +10,9 @@ const PASOS = [
   { n: 3, href: "/carga", title: "Cargar horas", desc: "Registrá los días trabajados de la quincena.", primary: true },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const session = await requireUser();
+  if (session.user.role !== "admin") redirect("/carga");
   return (
     <main className="mx-auto max-w-2xl space-y-6 p-4 sm:p-6">
       <div className="space-y-1">

@@ -1,11 +1,15 @@
 "use server";
 import { db } from "@/db";
 import { quincenas, horas, obreros, categorias, liquidaciones } from "@/db/schema";
-import { obtenerProductoManoObra, crearFacturaProveedor, leerFacturas, obtenerObras } from "@/lib/odoo/queries";
+import { crearFacturaProveedor, leerFacturas, obtenerObras } from "@/lib/odoo/queries";
 import { valorHora, construirLineasComprobante, desglosarJornales, etiquetaQuincena, HORAS_JORNAL } from "@/lib/calc";
-import { and, eq } from "drizzle-orm";
+import { requireAdmin } from "@/lib/auth-server";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { EMPRESA_BIMEG, DIARIO_COMPRAS } from "@/lib/constantes";
+import { EMPRESA_BIMEG, DIARIO_COMPRAS, PRODUCTO_MANO_OBRA } from "@/lib/constantes";
+
+// Centinela "factura en proceso" para el claim atómico (ningún id real de Odoo es negativo).
+const EN_PROCESO = -1;
 
 type ResultadoObrero = {
   obreroId: number; nombre: string;
@@ -14,12 +18,10 @@ type ResultadoObrero = {
 };
 
 export async function registrarComprobantes(quincenaId: number, obreroIds?: number[]): Promise<ResultadoObrero[]> {
+  await requireAdmin();
   const [q] = await db.select().from(quincenas).where(eq(quincenas.id, quincenaId));
   if (!q) throw new Error("Quincena no encontrada");
   if (q.estado !== "cerrada") throw new Error("La quincena debe estar cerrada para registrar comprobantes");
-
-  const productoId = await obtenerProductoManoObra();
-  if (productoId == null) throw new Error('No se encontró el producto "Mano de Obra" en Odoo');
 
   const [filas, liqs, obrerosDb, cats, obras] = await Promise.all([
     db.select().from(horas).where(eq(horas.quincenaId, quincenaId)),
@@ -71,6 +73,13 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
       o.aliasCbu ? `<p><strong>Alias/CBU:</strong> ${escHtml(o.aliasCbu)}</p>` : null,
     ].filter(Boolean).join("");
 
+    // Claim atómico: marca la fila "en proceso" solo si sigue sin factura. Dos llamadas
+    // concurrentes para el mismo obrero: solo una gana el claim, la otra ve ya_registrado.
+    const claim = await db.update(liquidaciones).set({ odooFacturaId: EN_PROCESO })
+      .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId), isNull(liquidaciones.odooFacturaId)))
+      .returning({ id: liquidaciones.id });
+    if (claim.length === 0) { resultados.push({ obreroId, nombre: o.nombre, estado: "ya_registrado" }); continue; }
+
     try {
       const facturaId = await crearFacturaProveedor({
         partnerId: o.odooContactoId,
@@ -80,7 +89,7 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
         referencia,
         narracion,
         lineas: lineas.map((l) => ({
-          productId: productoId,
+          productId: PRODUCTO_MANO_OBRA,
           nombre: `Mano de obra — ${nombreObra.get(l.obraId) ?? `#${l.obraId}`}`,
           cantidad: l.horas,
           precioUnit: l.precioUnit,
@@ -91,6 +100,9 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
         .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId)));
       resultados.push({ obreroId, nombre: o.nombre, estado: "creado", facturaId });
     } catch (e) {
+      // Falló Odoo: liberar el centinela para poder reintentar.
+      await db.update(liquidaciones).set({ odooFacturaId: null })
+        .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId), eq(liquidaciones.odooFacturaId, EN_PROCESO)));
       resultados.push({ obreroId, nombre: o.nombre, estado: "error", mensaje: e instanceof Error ? e.message : String(e) });
     }
   }
@@ -104,13 +116,15 @@ type Registro = { facturaId: number; numero: string; estadoOdoo: string };
 // Sincroniza huérfanos: si un id guardado ya no existe en Odoo (borrado a mano), limpia el
 // odooFacturaId en la DB para que el obrero vuelva a aparecer como no-registrado y se pueda re-registrar.
 export async function estadoComprobantes(quincenaId: number): Promise<Record<number, Registro>> {
+  await requireAdmin();
   const liqs = await db.select().from(liquidaciones).where(eq(liquidaciones.quincenaId, quincenaId));
-  const ids = liqs.map((l) => l.odooFacturaId).filter((x): x is number => x != null);
+  // id > 0: ignora el centinela EN_PROCESO de un registro en curso (no es una factura real).
+  const ids = liqs.map((l) => l.odooFacturaId).filter((x): x is number => x != null && x > 0);
   const facturas = await leerFacturas(ids);
   const byId = new Map(facturas.map((f) => [f.id, f]));
 
   for (const l of liqs) {
-    if (l.odooFacturaId != null && !byId.has(l.odooFacturaId)) {
+    if (l.odooFacturaId != null && l.odooFacturaId > 0 && !byId.has(l.odooFacturaId)) {
       await db.update(liquidaciones).set({ odooFacturaId: null, odooFacturaNumero: null })
         .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, l.obreroId)));
     }
@@ -118,7 +132,7 @@ export async function estadoComprobantes(quincenaId: number): Promise<Record<num
 
   const out: Record<number, Registro> = {};
   for (const l of liqs) {
-    if (l.odooFacturaId == null) continue;
+    if (l.odooFacturaId == null || l.odooFacturaId < 0) continue; // null o centinela en proceso
     const f = byId.get(l.odooFacturaId);
     if (!f) continue; // huérfano: ya se limpió arriba, no lo reportamos como registrado
     out[l.obreroId] = { facturaId: l.odooFacturaId, numero: f.name ?? "/", estadoOdoo: f.state ?? "?" };

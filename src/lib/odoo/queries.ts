@@ -40,26 +40,15 @@ export async function obtenerContactosObreros(): Promise<ContactoObrero[]> {
   return (filas as any[]).map((r) => ({ odooContactoId: r.id, nombre: r.name, dni: r.vat || null }));
 }
 
-export async function obtenerAdelantos(contactoIds: number[], inicio: string, fin: string): Promise<Adelanto[]> {
+export async function obtenerAdelantos(contactoIds: number[], empresaId: number, inicio: string, fin: string): Promise<Adelanto[]> {
   if (contactoIds.length === 0) return [];
+  // company_id: el contacto es compartido entre las 2 empresas de Odoo; sin este filtro un pago
+  // de BIMEG CONSTRUCTORA al mismo obrero se restaría del saldo de BIMEG B.
   const filas = await ejecutar("account.payment", "search_read",
-    [[["partner_id", "in", contactoIds], ["payment_type", "=", "outbound"], ["date", ">=", inicio], ["date", "<=", fin]]],
+    [[["partner_id", "in", contactoIds], ["company_id", "=", empresaId], ["payment_type", "=", "outbound"], ["date", ">=", inicio], ["date", "<=", fin]]],
     { fields: ["partner_id", "amount", "date"] });
   return (filas as any[]).map((r) => ({ contactoId: r.partner_id[0], monto: r.amount, fecha: r.date }));
 }
-
-// Producto "Mano de Obra" (servicio). Cambia poco → cacheado 10 min. null si no existe.
-export const obtenerProductoManoObra = unstable_cache(
-  async (): Promise<number | null> => {
-    const filas = await ejecutar("product.product", "search_read",
-      [[["name", "=", "Mano de Obra"]]],
-      { fields: ["id"], limit: 1 });
-    const f = (filas as any[])[0];
-    return f ? f.id : null;
-  },
-  ["odoo-producto-mano-obra"],
-  { revalidate: 600 },
-);
 
 export type LineaFactura = { productId: number; nombre: string; cantidad: number; precioUnit: number; obraId: number };
 

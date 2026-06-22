@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { CategoriasTabla } from "./categorias-tabla";
+import { requireAdmin } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic"; // lee datos vivos de la DB en cada request
 
 export default async function CategoriasPage() {
+  await requireAdmin();
   const filas = await listarCategorias();
   return (
     <main className="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">

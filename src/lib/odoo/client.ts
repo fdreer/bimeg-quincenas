@@ -37,5 +37,12 @@ export async function ejecutar(
   kwargs: Record<string, unknown> = {},
 ) {
   const uid = await obtenerUid();
-  return llamarJsonRpc("object", "execute_kw", [DB, uid, CLAVE, modelo, metodo, params, kwargs]);
+  try {
+    return await llamarJsonRpc("object", "execute_kw", [DB, uid, CLAVE, modelo, metodo, params, kwargs]);
+  } catch (e) {
+    // El uid cacheado pudo quedar inválido (API key rotada, sesión caída). Lo limpiamos para
+    // forzar re-login en la próxima llamada. Sin retry acá: re-ejecutar un create duplicaría.
+    uidCache = null;
+    throw e;
+  }
 }

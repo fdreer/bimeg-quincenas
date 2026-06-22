@@ -3,10 +3,12 @@ import { listarQuincenas, construirSaldos } from "@/actions/saldos";
 import { estadoComprobantes } from "@/actions/comprobantes";
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { SaldosTabla } from "./saldos-tabla";
+import { requireAdmin } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic"; // lee datos vivos (DB + Odoo) en cada request
 
 export default async function SaldosPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const lista = await listarQuincenas();
 

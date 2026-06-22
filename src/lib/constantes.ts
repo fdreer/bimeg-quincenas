@@ -6,3 +6,7 @@ export const EMPRESA_BIMEG = 2;
 // (en Odoo figura como "Purchases" / code COMP; es el único diario de compras de BIMEG B).
 // Se referencia por id porque el nombre no es estable.
 export const DIARIO_COMPRAS = 18;
+
+// Producto product.product id 12533 ("Mano de Obra", servicio). Por id y no por nombre:
+// el nombre no es único ni estable; el id sí.
+export const PRODUCTO_MANO_OBRA = 12533;

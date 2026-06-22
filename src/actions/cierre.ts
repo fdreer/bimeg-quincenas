@@ -3,11 +3,13 @@ import { db } from "@/db";
 import { quincenas, horas, obreros, categorias, liquidaciones } from "@/db/schema";
 import { obtenerAdelantos } from "@/lib/odoo/queries";
 import { jornalEfectivo } from "@/lib/calc";
+import { requireAdmin } from "@/lib/auth-server";
 import { eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // Congela la tarifa efectiva + adelantos de cada obrero con horas y marca la quincena cerrada.
 export async function cerrarQuincena(quincenaId: number) {
+  await requireAdmin();
   const [q] = await db.select().from(quincenas).where(eq(quincenas.id, quincenaId));
   if (!q) throw new Error("Quincena no encontrada");
   if (q.estado === "cerrada") return; // idempotente
@@ -29,30 +31,33 @@ export async function cerrarQuincena(quincenaId: number) {
 
   const obreroIds = [...new Set(filas.map((f) => f.obreroId))];
   const contactoIds = obreroIds.map((id) => obreroById.get(id)?.odooContactoId).filter((x): x is number => x != null);
-  const pagos = await obtenerAdelantos(contactoIds, q.fechaInicio, q.fechaFin);
+  const pagos = await obtenerAdelantos(contactoIds, q.odooEmpresaId, q.fechaInicio, q.fechaFin);
   const adelantoPorContacto = new Map<number, number>();
   for (const p of pagos) adelantoPorContacto.set(p.contactoId, (adelantoPorContacto.get(p.contactoId) ?? 0) + p.monto);
 
-  for (const obreroId of obreroIds) {
-    const o = obreroById.get(obreroId);
-    if (!o) continue;
-    const valorJornal = jornalDe(obreroId);
-    const adelantos = adelantoPorContacto.get(o.odooContactoId) ?? 0;
-    await db.insert(liquidaciones)
-      .values({ quincenaId, obreroId, valorJornal: String(valorJornal), adelantos: String(adelantos) })
-      .onConflictDoUpdate({
-        target: [liquidaciones.quincenaId, liquidaciones.obreroId],
-        set: { valorJornal: String(valorJornal), adelantos: String(adelantos) },
-      });
-  }
-
-  await db.update(quincenas).set({ estado: "cerrada", cerradaEn: sql`now()` }).where(eq(quincenas.id, quincenaId));
+  // Una transacción: o se congelan todas las liquidaciones y queda cerrada, o nada.
+  await db.transaction(async (tx) => {
+    for (const obreroId of obreroIds) {
+      const o = obreroById.get(obreroId);
+      if (!o) continue;
+      const valorJornal = jornalDe(obreroId);
+      const adelantos = adelantoPorContacto.get(o.odooContactoId) ?? 0;
+      await tx.insert(liquidaciones)
+        .values({ quincenaId, obreroId, valorJornal: String(valorJornal), adelantos: String(adelantos) })
+        .onConflictDoUpdate({
+          target: [liquidaciones.quincenaId, liquidaciones.obreroId],
+          set: { valorJornal: String(valorJornal), adelantos: String(adelantos) },
+        });
+    }
+    await tx.update(quincenas).set({ estado: "cerrada", cerradaEn: sql`now()` }).where(eq(quincenas.id, quincenaId));
+  });
   revalidatePath("/saldos");
   revalidatePath("/carga");
 }
 
 // Reabre solo si no hay comprobantes ya creados (si los hay, anularlos en Odoo primero).
 export async function reabrirQuincena(quincenaId: number) {
+  await requireAdmin();
   const liqs = await db.select().from(liquidaciones).where(eq(liquidaciones.quincenaId, quincenaId));
   if (liqs.some((l) => l.odooFacturaId != null))
     throw new Error("No se puede reabrir: hay comprobantes registrados en Odoo. Anulalos primero.");
