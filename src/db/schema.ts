@@ -68,6 +68,7 @@ export const obreros = pgTable("obreros", {
   valorJornal: numeric("valor_jornal", { precision: 12, scale: 2 }), // override opcional; null = usa la categoría
   aliasCbu: text("alias_cbu"), // dato para transferir
   dni: text("dni"), // identificación; se trae de Odoo (vat) al sincronizar, no editable
+  habilitado: boolean("habilitado").notNull().default(true), // solo admin lo cambia; deshabilitado = no se le cargan horas
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });
 

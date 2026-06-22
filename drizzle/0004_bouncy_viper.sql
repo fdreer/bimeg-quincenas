@@ -1,0 +1,1 @@
+ALTER TABLE "obreros" ADD COLUMN "habilitado" boolean DEFAULT true NOT NULL;
