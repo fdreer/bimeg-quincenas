@@ -1,4 +1,4 @@
-import { endOfMonth, format } from "date-fns";
+import { endOfMonth, format, parseISO, addDays } from "date-fns";
 
 const fmt = (d: Date) => format(d, "yyyy-MM-dd");
 
@@ -10,6 +10,19 @@ export function rangoQuincena(anio: number, mes: number, mitad: 1 | 2): { inicio
   const primero = new Date(anio, mes - 1, 1);
   if (mitad === 1) return { inicio: fmt(new Date(anio, mes - 1, 1)), fin: fmt(new Date(anio, mes - 1, 15)) };
   return { inicio: fmt(new Date(anio, mes - 1, 16)), fin: fmt(endOfMonth(primero)) };
+}
+
+/**
+ * Días Lun–Vie del rango [inicio, fin] inclusive, en "yyyy-MM-dd". Sáb y Dom quedan afuera.
+ * Son los días que el pre-llenado de /carga marca como Presente.
+ */
+export function diasHabilesDeRango(inicio: string, fin: string): string[] {
+  const out: string[] = [];
+  for (let d = parseISO(inicio), end = parseISO(fin); d <= end; d = addDays(d, 1)) {
+    const dow = d.getDay(); // 0=Dom … 6=Sáb
+    if (dow >= 1 && dow <= 5) out.push(format(d, "yyyy-MM-dd"));
+  }
+  return out;
 }
 
 /** Jornal efectivo del obrero: override propio si existe, si no el de la categoría, si no 0. */

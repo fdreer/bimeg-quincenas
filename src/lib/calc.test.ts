@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -161,4 +161,17 @@ test("desglosarJornales: 5 horas → 0 jornales + 5 horas sobrantes", () => {
 
 test("desglosarJornales: horas con decimales (20.5) → 2 jornales + 4.5 sobrante", () => {
   expect(desglosarJornales(20.5)).toEqual({ jornales: 2, sobrante: 4.5 });
+});
+
+test("diasHabilesDeRango: 2ª quincena junio 2026 → solo Lun–Vie", () => {
+  expect(diasHabilesDeRango("2026-06-16", "2026-06-30")).toEqual([
+    "2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19", // Mar–Vie
+    "2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26", // Lun–Vie
+    "2026-06-29", "2026-06-30", // Lun–Mar
+  ]);
+});
+test("diasHabilesDeRango: excluye el finde (20=Sáb, 21=Dom)", () => {
+  const h = diasHabilesDeRango("2026-06-16", "2026-06-30");
+  expect(h).not.toContain("2026-06-20");
+  expect(h).not.toContain("2026-06-21");
 });
