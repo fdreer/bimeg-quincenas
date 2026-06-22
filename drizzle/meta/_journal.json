@@ -36,6 +36,13 @@
       "when": 1782159324602,
       "tag": "0004_bouncy_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782166114848,
+      "tag": "0005_white_namora",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "obreros" ADD COLUMN "odoo_obra_habitual_id" integer;

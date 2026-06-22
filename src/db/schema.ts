@@ -69,6 +69,7 @@ export const obreros = pgTable("obreros", {
   aliasCbu: text("alias_cbu"), // dato para transferir
   dni: text("dni"), // identificación; se trae de Odoo (vat) al sincronizar, no editable
   habilitado: boolean("habilitado").notNull().default(true), // solo admin lo cambia; deshabilitado = no se le cargan horas
+  odooObraHabitualId: integer("odoo_obra_habitual_id"), // obra por defecto (account.analytic.account); pre-llena Lun–Vie en /carga
   actualizadoEn: timestamp("actualizado_en").defaultNow().notNull(),
 });
 
