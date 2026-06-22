@@ -20,8 +20,9 @@ function GoogleIcon() {
 function LoginInner() {
   const sp = useSearchParams();
   const from = sp.get("from") ?? "/";
-  const error = sp.get("error");
   const [loading, setLoading] = useState(false);
+  // signIn.social NO tira: devuelve { error }. Si no lo miramos, el spinner queda girando para siempre.
+  const [error, setError] = useState(sp.get("error"));
 
   return (
     <>
@@ -32,7 +33,13 @@ function LoginInner() {
         disabled={loading}
         onClick={async () => {
           setLoading(true);
-          await authClient.signIn.social({ provider: "google", callbackURL: from });
+          setError(null);
+          const { error } = await authClient.signIn.social({ provider: "google", callbackURL: from });
+          if (error) {
+            setError(error.message ?? "unknown");
+            setLoading(false);
+          }
+          // si no hay error, el cliente redirige a Google y este componente se desmonta.
         }}
       >
         {loading ? <Loader2Icon className="size-5 animate-spin" /> : <GoogleIcon />}
@@ -42,7 +49,7 @@ function LoginInner() {
         <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
           {error === "access_denied" || error === "forbidden"
             ? "Tu cuenta no está autorizada para esta app."
-            : "No pudimos iniciar sesión. Probá de nuevo."}
+            : `No pudimos iniciar sesión: ${error}`}
         </p>
       )}
     </>
