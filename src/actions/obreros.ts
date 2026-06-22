@@ -32,7 +32,7 @@ export async function listarObreros() {
 
 export async function guardarObrero(
   id: number,
-  datos: { categoriaId: number | null; valorJornal: number | null; aliasCbu: string | null; habilitado: boolean },
+  datos: { categoriaId: number | null; valorJornal: number | null; aliasCbu: string | null; habilitado: boolean; obraHabitualId: number | null },
 ) {
   await requireAdmin();
   await db.update(obreros)
@@ -41,6 +41,7 @@ export async function guardarObrero(
       valorJornal: datos.valorJornal != null ? String(datos.valorJornal) : null,
       aliasCbu: datos.aliasCbu,
       habilitado: datos.habilitado,
+      odooObraHabitualId: datos.obraHabitualId,
       actualizadoEn: sql`now()`,
     })
     .where(eq(obreros.id, id));
