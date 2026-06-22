@@ -1,6 +1,6 @@
 "use server";
 import { db } from "@/db";
-import { quincenas, horas, obreros, liquidaciones } from "@/db/schema";
+import { quincenas, horas, obreros, categorias, liquidaciones } from "@/db/schema";
 import { obtenerProductoManoObra, crearFacturaProveedor, leerFacturas, obtenerObras } from "@/lib/odoo/queries";
 import { valorHora, construirLineasComprobante, desglosarJornales, etiquetaQuincena, HORAS_JORNAL } from "@/lib/calc";
 import { and, eq } from "drizzle-orm";
@@ -21,16 +21,18 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
   const productoId = await obtenerProductoManoObra();
   if (productoId == null) throw new Error('No se encontró el producto "Mano de Obra" en Odoo');
 
-  const [filas, liqs, obrerosDb, obras] = await Promise.all([
+  const [filas, liqs, obrerosDb, cats, obras] = await Promise.all([
     db.select().from(horas).where(eq(horas.quincenaId, quincenaId)),
     db.select().from(liquidaciones).where(eq(liquidaciones.quincenaId, quincenaId)),
     db.select().from(obreros),
+    db.select().from(categorias),
     obtenerObras(q.odooEmpresaId),
   ]);
 
   const obreroById = new Map(obrerosDb.map((o) => [o.id, o]));
   const liqByObrero = new Map(liqs.map((l) => [l.obreroId, l]));
   const nombreObra = new Map(obras.map((o) => [o.id, o.nombre]));
+  const nombreCategoria = new Map(cats.map((c) => [c.id, c.nombre]));
   // Referencia común del lote: "QUINCENA" + fin de quincena (YYYYMMDD). Ej: QUINCENA20260630.
   const referencia = `QUINCENA${q.fechaFin.replace(/-/g, "")}`;
   const etiqueta = etiquetaQuincena(q.fechaInicio);
@@ -60,8 +62,10 @@ export async function registrarComprobantes(quincenaId: number, obreroIds?: numb
     const horasTotal = lineas.reduce((s, l) => s + l.horas, 0);
     const { jornales, sobrante } = desglosarJornales(horasTotal);
     const totalTrabajado = `${jornales} jornal${jornales === 1 ? "" : "es"}${sobrante > 0 ? ` + ${sobrante} h` : ""}`;
+    const cat = o.categoriaId != null ? nombreCategoria.get(o.categoriaId) : null;
     const narracion = [
       `<p><strong>Liquidación · ${escHtml(etiqueta)} — ${escHtml(o.nombre)}</strong></p>`,
+      cat ? `<p><strong>Categoría:</strong> ${escHtml(cat)}</p>` : null,
       `<p><strong>Valor jornal:</strong> ${money.format(Number(liq.valorJornal))} (${HORAS_JORNAL} hs)</p>`,
       `<p><strong>Total trabajado:</strong> ${totalTrabajado}</p>`,
       o.aliasCbu ? `<p><strong>Alias/CBU:</strong> ${escHtml(o.aliasCbu)}</p>` : null,
