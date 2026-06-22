@@ -16,6 +16,7 @@ const money = (n: number) =>
 type Detalle = { fecha: string; obra: string | null; horas: number; tipo: string; comentario: string | null };
 type SaldoRow = {
   obreroId: number; nombre: string; aliasCbu: string | null; dni: string | null;
+  habilitado: boolean;
   dias: number; horas: number; devengado: number; adelantos: number; saldo: number;
   sinTarifa: boolean; detalle: Detalle[];
 };
@@ -27,8 +28,8 @@ type Registro = { facturaId: number; numero: string; estadoOdoo: string };
 // Igual que antes + última columna (Odoo) un poco más ancha para el botón/numero.
 const GRID = "sm:grid-cols-[1.75rem_minmax(0,1.4fr)_3.5rem_3.5rem_repeat(3,minmax(5rem,1fr))_6.5rem]";
 
-export function SaldosTabla({ quincenas, quincenaId, empresaNombre, estado, saldos, costos, totales, registros }: {
-  quincenas: Quincena[]; quincenaId: number; empresaNombre: string; estado: string;
+export function SaldosTabla({ quincenas, quincenaId, estado, saldos, costos, totales, registros }: {
+  quincenas: Quincena[]; quincenaId: number; estado: string;
   saldos: SaldoRow[]; costos: Costo[]; totales: Totales; registros: Record<number, Registro>;
 }) {
   const router = useRouter();
@@ -69,7 +70,6 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, estado, sald
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <p className="text-sm text-muted-foreground">{empresaNombre}</p>
           <Badge variant={cerrada ? "default" : "secondary"}>{cerrada ? "Cerrada" : "Borrador"}</Badge>
         </div>
         <Select items={items} value={String(quincenaId)} onValueChange={(v) => { if (v) router.push(`/saldos?q=${v}`); }}>
@@ -129,6 +129,7 @@ export function SaldosTabla({ quincenas, quincenaId, empresaNombre, estado, sald
                 </button>
                 <span className="font-medium">
                   {s.nombre}
+                  {!s.habilitado && <Badge variant="secondary" className="ml-2 align-middle text-[10px]">deshabilitado</Badge>}
                   {s.sinTarifa && <Badge variant="destructive" className="ml-2 align-middle text-[10px]">sin tarifa</Badge>}
                 </span>
                 <span className="text-sm tabular-nums sm:text-center"><span className="text-muted-foreground sm:hidden">Días: </span>{s.dias}</span>

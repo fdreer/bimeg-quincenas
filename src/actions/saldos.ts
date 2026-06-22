@@ -1,20 +1,23 @@
 "use server";
 import { db } from "@/db";
 import { quincenas, horas, obreros, categorias, liquidaciones } from "@/db/schema";
-import { obtenerEmpresas, obtenerObras, obtenerAdelantos, type Adelanto } from "@/lib/odoo/queries";
+import { obtenerObras, obtenerAdelantos, type Adelanto } from "@/lib/odoo/queries";
 import {
   jornalEfectivo, valorHora, devengadoPorObrero, costoPorObra, saldo,
   diasTrabajados, etiquetaQuincena, type FilaCalc,
 } from "@/lib/calc";
 import { requireAdmin } from "@/lib/auth-server";
 import { EMPRESA_BIMEG } from "@/lib/constantes";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
-/** Quincenas de BIMEG B (única empresa operada), recientes primero, con etiqueta legible. */
+/** Quincenas de BIMEG B con horas cargadas (vacías no aparecen), recientes primero, con etiqueta legible. */
 export async function listarQuincenas() {
   await requireAdmin();
   const qs = await db.select().from(quincenas)
-    .where(eq(quincenas.odooEmpresaId, EMPRESA_BIMEG))
+    .where(and(
+      eq(quincenas.odooEmpresaId, EMPRESA_BIMEG),
+      inArray(quincenas.id, db.select({ id: horas.quincenaId }).from(horas)),
+    ))
     .orderBy(desc(quincenas.fechaInicio));
   return qs.map((q) => ({ id: q.id, etiqueta: etiquetaQuincena(q.fechaInicio) }));
 }
@@ -25,11 +28,10 @@ export async function construirSaldos(quincenaId: number) {
   if (!q) return null;
   const cerrada = q.estado === "cerrada";
 
-  const [filas, obrerosDb, cats, empresas, liqs] = await Promise.all([
+  const [filas, obrerosDb, cats, liqs] = await Promise.all([
     db.select().from(horas).where(eq(horas.quincenaId, quincenaId)),
     db.select().from(obreros),
     db.select().from(categorias),
-    obtenerEmpresas(),
     db.select().from(liquidaciones).where(eq(liquidaciones.quincenaId, quincenaId)),
   ]);
 
@@ -88,6 +90,7 @@ export async function construirSaldos(quincenaId: number) {
       nombre: o.nombre,
       aliasCbu: o.aliasCbu,
       dni: o.dni,
+      habilitado: o.habilitado,
       dias: diasTrabajados(suyas),
       horas: suyas.filter((f) => f.tipo === "trabajado").reduce((s, f) => s + Number(f.horas), 0),
       devengado: dev,
@@ -118,10 +121,8 @@ export async function construirSaldos(quincenaId: number) {
     costo: costosList.reduce((s, x) => s + x.costo, 0),
   };
 
-  const empresaNombre = empresas.find((e) => e.id === q.odooEmpresaId)?.nombre ?? `Empresa #${q.odooEmpresaId}`;
-
   return {
-    quincena: { id: q.id, etiqueta: etiquetaQuincena(q.fechaInicio), empresaNombre, estado: q.estado, fechaInicio: q.fechaInicio, fechaFin: q.fechaFin },
+    quincena: { id: q.id, etiqueta: etiquetaQuincena(q.fechaInicio), estado: q.estado, fechaInicio: q.fechaInicio, fechaFin: q.fechaFin },
     saldos,
     costos: costosList,
     totales,
@@ -132,6 +133,7 @@ export async function construirSaldos(quincenaId: number) {
 type Detalle = { fecha: string; obra: string | null; horas: number; tipo: string; comentario: string | null };
 type SaldoRow = {
   obreroId: number; nombre: string; aliasCbu: string | null; dni: string | null;
+  habilitado: boolean;
   dias: number; horas: number; devengado: number; adelantos: number; saldo: number;
   sinTarifa: boolean; detalle: Detalle[];
 };

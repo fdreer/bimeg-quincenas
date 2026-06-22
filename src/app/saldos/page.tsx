@@ -40,7 +40,6 @@ export default async function SaldosPage({ searchParams }: { searchParams: Promi
       <SaldosTabla
         quincenas={lista}
         quincenaId={elegida}
-        empresaNombre={data.quincena.empresaNombre}
         estado={data.quincena.estado}
         saldos={data.saldos}
         costos={data.costos}
