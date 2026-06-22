@@ -4,7 +4,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { ArrowRightIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { useCargaStore, type Asignacion, type DiaBorrador } from "@/store/carga-store";
 import { asegurarQuincena, guardarHoras, obtenerHorasGuardadas, obtenerEstadoCarga } from "@/actions/quincenas";
-import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, type EstadoCargaObrero } from "@/lib/calc";
+import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, diasHabilesDeRango, type EstadoCargaObrero } from "@/lib/calc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ const ALOC_COLS = "sm:grid-cols-[minmax(8rem,1fr)_7rem_7rem_4.5rem_2rem]";
 const DOW = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const TIPO_ITEMS = { trabajado: "Presente", ausente: "Ausente" };
 
-type ObreroLite = { id: number; nombre: string; dni: string | null };
+type ObreroLite = { id: number; nombre: string; dni: string | null; obraHabitualId: number | null };
 const record = <T extends { id: number; nombre: string }>(xs: T[]) => Object.fromEntries(xs.map((x) => [String(x.id), x.nombre]));
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -61,6 +61,17 @@ function construirDias(inicio: string, fin: string, guardadas: HoraGuardada[]): 
   });
 }
 
+// Pre-llenado por obra habitual: Lun–Vie Presente@8h en esa obra; Sáb/Dom Ausente.
+// Solo se usa cuando el obrero no tiene nada guardado en el período (primera carga).
+function construirDiasPrefill(inicio: string, fin: string, obraHabitualId: number): DiaBorrador[] {
+  const habiles = new Set(diasHabilesDeRango(inicio, fin));
+  return diasDeRango(inicio, fin).map((fecha) =>
+    habiles.has(fecha)
+      ? { id: fecha, fecha, tipo: "trabajado", asignaciones: [{ obraId: obraHabitualId, desde: "", hasta: "", horas: HORAS_JORNAL }], comentario: "" }
+      : { id: fecha, fecha, tipo: "ausente", asignaciones: [], comentario: "" },
+  );
+}
+
 export function CargaForm({ obras, obreros }: {
   obras: Obra[];
   obreros: ObreroLite[];
@@ -90,11 +101,17 @@ export function CargaForm({ obras, obreros }: {
     setCargando(true);
     const { inicio, fin } = rangoQuincena(anio, mes, mitad);
     obtenerHorasGuardadas(empresaId, anio, mes, mitad, obreroId)
-      .then((r) => { if (!cancel) { cargarDias(construirDias(inicio, fin, r.filas)); setCerrada(r.estado === "cerrada"); } })
+      .then((r) => { if (!cancel) {
+        const habitual = obreros.find((o) => o.id === obreroId)?.obraHabitualId ?? null;
+        cargarDias(r.filas.length === 0 && habitual != null
+          ? construirDiasPrefill(inicio, fin, habitual)
+          : construirDias(inicio, fin, r.filas));
+        setCerrada(r.estado === "cerrada");
+      } })
       .catch(() => { if (!cancel) { cargarDias(construirDias(inicio, fin, [])); setCerrada(false); } })
       .finally(() => { if (!cancel) setCargando(false); });
     return () => { cancel = true; };
-  }, [empresaId, obreroId, anio, mes, mitad, cargarDias]);
+  }, [empresaId, obreroId, anio, mes, mitad, cargarDias, obreros]);
 
   // Estado del roster (no depende del obrero abierto): se refresca al cambiar de período.
   useEffect(() => {
@@ -189,6 +206,7 @@ export function CargaForm({ obras, obreros }: {
   }
 
   const obreroNombre = obreros.find((o) => o.id === obreroId)?.nombre;
+  const obraHabitual = obreros.find((o) => o.id === obreroId)?.obraHabitualId ?? null;
 
   return (
     <div className="space-y-4 pb-2">
@@ -234,7 +252,10 @@ export function CargaForm({ obras, obreros }: {
 
       {obreroId ? (
         <p className="px-1 text-sm text-muted-foreground">
-          Cargando <span className="font-medium text-foreground">{obreroNombre}</span> · {mitad}ª quincena de {MESES[mes - 1]} (días {rango.inicio.slice(8)}–{rango.fin.slice(8)}). Cada día arranca como <span className="font-medium text-foreground">Ausente</span>; marcá los que estuvo Presente.
+          Cargando <span className="font-medium text-foreground">{obreroNombre}</span> · {mitad}ª quincena de {MESES[mes - 1]} (días {rango.inicio.slice(8)}–{rango.fin.slice(8)}).{" "}
+          {obraHabitual != null
+            ? <>Viene pre-cargado <span className="font-medium text-foreground">Lun–Vie</span> en su obra habitual; corregí las excepciones (faltas, sábados, cambios de obra).</>
+            : <>Cada día arranca como <span className="font-medium text-foreground">Ausente</span>; marcá los que estuvo Presente.</>}
         </p>
       ) : (
         <p className="px-1 text-sm text-muted-foreground">Elegí un obrero para cargar sus horas.</p>
