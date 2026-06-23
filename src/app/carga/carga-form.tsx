@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { ArrowRightIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { useCargaStore, type Asignacion, type DiaBorrador } from "@/store/carga-store";
-import { asegurarQuincena, guardarHoras, obtenerHorasGuardadas, obtenerEstadoCarga } from "@/actions/quincenas";
+import { asegurarQuincena, guardarHoras, obtenerHorasGuardadas, obtenerEstadoCarga, aplicarHorasEnLote } from "@/actions/quincenas";
 import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, type EstadoCargaObrero } from "@/lib/calc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Field } from "@/components/field";
 import { TimePicker } from "@/components/time-picker";
 import { ObreroCombobox } from "./obrero-combobox";
@@ -91,6 +92,10 @@ export function CargaForm({ obras, obreros }: {
   const [barObraId, setBarObraId] = useState<string>("");
   const [barHoras, setBarHoras] = useState("8");
   const [barDiaSet, setBarDiaSet] = useState("lunvie");
+  // Diálogo de cuadrilla.
+  const [crewOpen, setCrewOpen] = useState(false);
+  const [crewIds, setCrewIds] = useState<number[]>([]);
+  const [aplicandoLote, setAplicandoLote] = useState(false);
   const { dias, dirty, cargarDias, marcarLimpio, marcarSucio, editarDia, editarAsignacion, agregarObra, quitarObra, aplicarABloque } = useCargaStore();
 
   const obraItems = record(obras);
@@ -237,6 +242,28 @@ export function CargaForm({ obras, obreros }: {
     aplicarABloque(fechasDelSet, { obraId: Number(barObraId), desde: "", hasta: "", horas: barHorasNum });
   }
 
+  const barObraNombre = obras.find((o) => String(o.id) === barObraId)?.nombre ?? "—";
+
+  async function aplicarACuadrilla() {
+    if (!barListo || crewIds.length === 0) return;
+    setAplicandoLote(true);
+    try {
+      const r = await aplicarHorasEnLote({
+        empresaId, anio, mes, mitad,
+        obreroIds: crewIds, obraId: Number(barObraId), horas: barHorasNum, fechas: fechasDelSet,
+      });
+      toast.success(`Aplicado a ${r.obreros} obrero${r.obreros === 1 ? "" : "s"}${r.saltados ? ` · ${r.saltados} día(s) saltado(s) por ya tener carga` : ""}`);
+      const e = await obtenerEstadoCarga(empresaId, anio, mes, mitad);
+      setEstado(e);
+      setCrewOpen(false);
+      setCrewIds([]);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo aplicar a la cuadrilla.");
+    } finally {
+      setAplicandoLote(false);
+    }
+  }
+
   return (
     <div className="space-y-4 pb-2">
       <Card size="sm">
@@ -317,6 +344,7 @@ export function CargaForm({ obras, obreros }: {
               </Select>
             </div>
             <Button variant="outline" onClick={aplicarBarra} disabled={!barListo}>Aplicar</Button>
+            <Button variant="ghost" onClick={() => setCrewOpen(true)} disabled={!barListo}>Aplicar a más obreros…</Button>
           </CardContent>
         </Card>
       )}
@@ -404,6 +432,35 @@ export function CargaForm({ obras, obreros }: {
           </Button>
         </div>
       </div>
+
+      <Dialog open={crewOpen} onOpenChange={setCrewOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aplicar a más obreros</DialogTitle>
+            <DialogDescription>{barObraNombre} · {barHorasNum} hs · {fechasDelSet.length} día(s). Solo se rellenan días vacíos.</DialogDescription>
+          </DialogHeader>
+          <div className="flex max-h-72 flex-col gap-2 overflow-auto">
+            {obreros.filter((o) => o.id !== obreroId).map((o) => (
+              <label key={o.id} className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="size-4 cursor-pointer accent-primary"
+                  checked={crewIds.includes(o.id)}
+                  onChange={(e) => setCrewIds((prev) => e.target.checked ? [...prev, o.id] : prev.filter((id) => id !== o.id))}
+                />
+                {o.nombre}
+              </label>
+            ))}
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost">Cancelar</Button>} />
+            <Button onClick={() => void aplicarACuadrilla()} disabled={aplicandoLote || crewIds.length === 0}>
+              {aplicandoLote && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
+              Aplicar a {crewIds.length}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
