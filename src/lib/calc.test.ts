@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -174,4 +174,18 @@ test("diasHabilesDeRango: excluye el finde (20=Sáb, 21=Dom)", () => {
   const h = diasHabilesDeRango("2026-06-16", "2026-06-30");
   expect(h).not.toContain("2026-06-20");
   expect(h).not.toContain("2026-06-21");
+});
+
+test("semanasDeQuincena: 2ª quincena junio 2026 → 3 semanas Lun–Vie", () => {
+  expect(semanasDeQuincena("2026-06-16", "2026-06-30")).toEqual([
+    ["2026-06-16", "2026-06-17", "2026-06-18", "2026-06-19"], // Mar–Vie (semana parcial)
+    ["2026-06-22", "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26"], // Lun–Vie
+    ["2026-06-29", "2026-06-30"], // Lun–Mar (semana parcial)
+  ]);
+});
+test("semanasDeQuincena: 1ª quincena (1–15) arranca en Lunes y excluye el finde", () => {
+  const s = semanasDeQuincena("2026-06-01", "2026-06-15"); // 2026-06-01 es Lunes
+  expect(s[0][0]).toBe("2026-06-01");
+  expect(s.flat()).not.toContain("2026-06-06"); // sábado
+  expect(s.flat()).not.toContain("2026-06-07"); // domingo
 });

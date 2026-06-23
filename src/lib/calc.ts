@@ -25,6 +25,19 @@ export function diasHabilesDeRango(inicio: string, fin: string): string[] {
   return out;
 }
 
+/**
+ * Divide la quincena en semanas calendario, cada una con sus días Lun–Vie ("yyyy-MM-dd").
+ * Una semana nueva arranca cada Lunes. Alimenta los presets "por semana" del bulk de /carga.
+ */
+export function semanasDeQuincena(inicio: string, fin: string): string[][] {
+  const out: string[][] = [];
+  for (const fecha of diasHabilesDeRango(inicio, fin)) {
+    if (out.length === 0 || parseISO(fecha).getDay() === 1) out.push([fecha]);
+    else out[out.length - 1].push(fecha);
+  }
+  return out;
+}
+
 /** Jornal efectivo del obrero: override propio si existe, si no el de la categoría, si no 0. */
 export function jornalEfectivo(overrideObrero: number | null, valorCategoria: number | null): number {
   if (overrideObrero != null) return overrideObrero;
