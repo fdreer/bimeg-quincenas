@@ -92,6 +92,12 @@ export function CargaForm({ obras, obreros }: {
   const [barObraId, setBarObraId] = useState<string>("");
   const [barHoras, setBarHoras] = useState("8");
   const [barDiaSet, setBarDiaSet] = useState("lunvie");
+  const [barSyncedObrero, setBarSyncedObrero] = useState(obreroId);
+  if (barSyncedObrero !== obreroId) {
+    setBarSyncedObrero(obreroId);
+    const h = obreros.find((o) => o.id === obreroId)?.obraHabitualId ?? null;
+    setBarObraId(h != null ? String(h) : "");
+  }
   // Diálogo de cuadrilla.
   const [crewOpen, setCrewOpen] = useState(false);
   const [crewIds, setCrewIds] = useState<number[]>([]);
@@ -130,12 +136,6 @@ export function CargaForm({ obras, obreros }: {
       .catch(() => { if (!cancel) setEstado({ cerrada: false, porObrero: {} }); });
     return () => { cancel = true; };
   }, [empresaId, anio, mes, mitad]);
-
-  // Al abrir un obrero, la barra arranca con su obra habitual (si tiene).
-  useEffect(() => {
-    const h = obreros.find((o) => o.id === obreroId)?.obraHabitualId ?? null;
-    setBarObraId(h != null ? String(h) : "");
-  }, [obreroId, obreros]);
 
   // Aviso del navegador si cerrás/recargás con cambios sin guardar.
   useEffect(() => {
