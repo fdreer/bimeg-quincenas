@@ -22,6 +22,7 @@ type CargaState = {
   editarAsignacion: (diaId: string, i: number, patch: Partial<Asignacion>) => void;
   agregarObra: (diaId: string) => void;
   quitarObra: (diaId: string, i: number) => void;
+  aplicarABloque: (fechas: string[], asignacion: Asignacion) => void; // bulk: setea esos días como Presente con una sola obra
 };
 
 const mapDia = (s: CargaState, diaId: string, fn: (d: DiaBorrador) => DiaBorrador) => ({
@@ -42,4 +43,13 @@ export const useCargaStore = create<CargaState>((set) => ({
     set((s) => mapDia(s, diaId, (d) => ({ ...d, asignaciones: [...d.asignaciones, { obraId: null, desde: "", hasta: "", horas: 0 }] }))),
   quitarObra: (diaId, i) =>
     set((s) => mapDia(s, diaId, (d) => ({ ...d, asignaciones: d.asignaciones.filter((_, j) => j !== i) }))),
+  aplicarABloque: (fechas, asignacion) => set((s) => {
+    const set_ = new Set(fechas);
+    return {
+      dias: s.dias.map((d) => set_.has(d.fecha)
+        ? { ...d, tipo: "trabajado", asignaciones: [{ ...asignacion }], comentario: "" }
+        : d),
+      dirty: true,
+    };
+  }),
 }));
