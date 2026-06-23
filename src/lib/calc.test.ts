@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, fechasARellenar } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -188,4 +188,15 @@ test("semanasDeQuincena: 1ª quincena (1–15) arranca en Lunes y excluye el fin
   expect(s[0][0]).toBe("2026-06-01");
   expect(s.flat()).not.toContain("2026-06-06"); // sábado
   expect(s.flat()).not.toContain("2026-06-07"); // domingo
+});
+
+test("fechasARellenar: solo las fechas objetivo que no están ya guardadas", () => {
+  expect(fechasARellenar(["2026-06-16", "2026-06-17", "2026-06-18"], ["2026-06-17"]))
+    .toEqual(["2026-06-16", "2026-06-18"]);
+});
+test("fechasARellenar: si todas están guardadas, devuelve vacío", () => {
+  expect(fechasARellenar(["2026-06-16"], ["2026-06-16", "2026-06-22"])).toEqual([]);
+});
+test("fechasARellenar: sin guardadas, devuelve el objetivo entero", () => {
+  expect(fechasARellenar(["2026-06-16", "2026-06-17"], [])).toEqual(["2026-06-16", "2026-06-17"]);
 });

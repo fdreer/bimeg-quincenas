@@ -38,6 +38,15 @@ export function semanasDeQuincena(inicio: string, fin: string): string[][] {
   return out;
 }
 
+/**
+ * Anti-pisado del bulk de cuadrilla: de las fechas objetivo, devuelve solo las que NO
+ * están en yaGuardadas. Garantiza que aplicar a una cuadrilla nunca borre carga existente.
+ */
+export function fechasARellenar(objetivo: string[], yaGuardadas: string[]): string[] {
+  const ocupadas = new Set(yaGuardadas);
+  return objetivo.filter((f) => !ocupadas.has(f));
+}
+
 /** Jornal efectivo del obrero: override propio si existe, si no el de la categoría, si no 0. */
 export function jornalEfectivo(overrideObrero: number | null, valorCategoria: number | null): number {
   if (overrideObrero != null) return overrideObrero;
