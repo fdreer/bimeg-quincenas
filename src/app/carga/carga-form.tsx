@@ -4,7 +4,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { ArrowRightIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { useCargaStore, type Asignacion, type DiaBorrador } from "@/store/carga-store";
 import { asegurarQuincena, guardarHoras, obtenerHorasGuardadas, obtenerEstadoCarga } from "@/actions/quincenas";
-import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, diasHabilesDeRango, type EstadoCargaObrero } from "@/lib/calc";
+import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, type EstadoCargaObrero } from "@/lib/calc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,7 +87,11 @@ export function CargaForm({ obras, obreros }: {
   const [cerrada, setCerrada] = useState(false);
   // Estado de carga de TODA la quincena (quién falta), no solo del obrero abierto.
   const [estado, setEstado] = useState<{ cerrada: boolean; porObrero: Record<number, EstadoCargaObrero> }>({ cerrada: false, porObrero: {} });
-  const { dias, dirty, cargarDias, marcarLimpio, marcarSucio, editarDia, editarAsignacion, agregarObra, quitarObra } = useCargaStore();
+  // Barra de carga rápida (bulk).
+  const [barObraId, setBarObraId] = useState<string>("");
+  const [barHoras, setBarHoras] = useState("8");
+  const [barDiaSet, setBarDiaSet] = useState("lunvie");
+  const { dias, dirty, cargarDias, marcarLimpio, marcarSucio, editarDia, editarAsignacion, agregarObra, quitarObra, aplicarABloque } = useCargaStore();
 
   const obraItems = record(obras);
   const cy = ahora.getFullYear();
@@ -121,6 +125,12 @@ export function CargaForm({ obras, obreros }: {
       .catch(() => { if (!cancel) setEstado({ cerrada: false, porObrero: {} }); });
     return () => { cancel = true; };
   }, [empresaId, anio, mes, mitad]);
+
+  // Al abrir un obrero, la barra arranca con su obra habitual (si tiene).
+  useEffect(() => {
+    const h = obreros.find((o) => o.id === obreroId)?.obraHabitualId ?? null;
+    setBarObraId(h != null ? String(h) : "");
+  }, [obreroId, obreros]);
 
   // Aviso del navegador si cerrás/recargás con cambios sin guardar.
   useEffect(() => {
@@ -208,6 +218,25 @@ export function CargaForm({ obras, obreros }: {
   const obreroNombre = obreros.find((o) => o.id === obreroId)?.nombre;
   const obraHabitual = obreros.find((o) => o.id === obreroId)?.obraHabitualId ?? null;
 
+  // Presets de "Días" de esta quincena: Lun–Vie, cada semana suelta, y toda la quincena.
+  const diaSets: { key: string; label: string; fechas: string[] }[] = [
+    { key: "lunvie", label: "Lun–Vie (toda la quincena)", fechas: diasHabilesDeRango(rango.inicio, rango.fin) },
+    ...semanasDeQuincena(rango.inicio, rango.fin).map((dias, i) => ({
+      key: `sem-${i}`,
+      label: `Sem ${dias[0].slice(8)}–${dias[dias.length - 1].slice(8)}`,
+      fechas: dias,
+    })),
+    { key: "toda", label: "Toda la quincena (incl. sáb/dom)", fechas: diasDeRango(rango.inicio, rango.fin) },
+  ];
+  const fechasDelSet = diaSets.find((s) => s.key === barDiaSet)?.fechas ?? [];
+  const barHorasNum = Number(barHoras) || 0;
+  const barListo = !!barObraId && fechasDelSet.length > 0 && barHorasNum > 0;
+
+  function aplicarBarra() {
+    if (!barListo) return;
+    aplicarABloque(fechasDelSet, { obraId: Number(barObraId), desde: "", hasta: "", horas: barHorasNum });
+  }
+
   return (
     <div className="space-y-4 pb-2">
       <Card size="sm">
@@ -264,6 +293,32 @@ export function CargaForm({ obras, obreros }: {
         <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           Quincena cerrada — solo lectura. Reabrila desde <a className="underline" href="/saldos">Saldos</a> para editar.
         </p>
+      )}
+
+      {!!obreroId && !cerrada && !cargando && (
+        <Card size="sm">
+          <CardContent className="flex flex-wrap items-end gap-3">
+            <div className="grid gap-1.5 flex-1 min-w-[10rem]">
+              <Label>Carga rápida · Obra</Label>
+              <Select items={obraItems} value={barObraId || null} onValueChange={(v) => setBarObraId(v ?? "")}>
+                <SelectTrigger className="w-full"><SelectValue placeholder="— elegir obra —" /></SelectTrigger>
+                <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5 w-20">
+              <Label>Horas</Label>
+              <Input type="number" inputMode="decimal" step="0.5" value={barHoras} onChange={(e) => setBarHoras(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5 flex-1 min-w-[9rem]">
+              <Label>Días</Label>
+              <Select items={Object.fromEntries(diaSets.map((s) => [s.key, s.label]))} value={barDiaSet} onValueChange={(v) => setBarDiaSet(v ?? "lunvie")}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>{diaSets.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <Button variant="outline" onClick={aplicarBarra} disabled={!barListo}>Aplicar</Button>
+          </CardContent>
+        </Card>
       )}
 
       {!!obreroId && (cargando ? (
