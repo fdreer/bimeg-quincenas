@@ -1,10 +1,11 @@
 "use server";
 import { db } from "@/db";
 import { quincenas, horas, obreros } from "@/db/schema";
-import { rangoQuincena, horasEntre, estadoCargaPorObrero, type EstadoCargaObrero } from "@/lib/calc";
+import { rangoQuincena, horasEntre, estadoCargaPorObrero, fechasARellenar, type EstadoCargaObrero } from "@/lib/calc";
 import { requireUser } from "@/lib/auth-server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 
 // Crea la quincena (empresa + período) si no existe, o devuelve la existente.
 export async function asegurarQuincena(empresaId: number, anio: number, mes: number, mitad: 1 | 2) {
@@ -79,4 +80,45 @@ export async function guardarHoras(input: z.infer<typeof GuardarHoras>) {
     comentario: f.comentario,
   })));
   return { guardadas: datos.filas.length };
+}
+
+const AplicarLote = z.object({
+  empresaId: z.number().int(),
+  anio: z.number().int(),
+  mes: z.number().int(),
+  mitad: z.union([z.literal(1), z.literal(2)]),
+  obreroIds: z.array(z.number().int()).min(1),
+  obraId: z.number().int(),
+  horas: z.number().min(0).max(24),
+  fechas: z.array(z.string()).min(1),
+});
+
+// Cuadrilla: aplica "obra + horas" a varios obreros en las fechas dadas, RELLENANDO SOLO
+// días vacíos (nunca pisa carga existente). Persiste directo. Devuelve cuántos se aplicó/saltó.
+export async function aplicarHorasEnLote(input: z.infer<typeof AplicarLote>) {
+  await requireUser();
+  const d = AplicarLote.parse(input);
+  const q = await asegurarQuincena(d.empresaId, d.anio, d.mes, d.mitad);
+  if (q.estado === "cerrada") throw new Error("Quincena cerrada: no se pueden modificar las horas");
+  // Solo obreros habilitados de los seleccionados.
+  const habil = await db.select({ id: obreros.id }).from(obreros)
+    .where(and(inArray(obreros.id, d.obreroIds), eq(obreros.habilitado, true)));
+  const ids = habil.map((o) => o.id);
+  let aplicados = 0, saltados = 0;
+  for (const obreroId of ids) {
+    const existentes = await db.select({ fecha: horas.fecha }).from(horas)
+      .where(and(eq(horas.quincenaId, q.id), eq(horas.obreroId, obreroId)));
+    const aRellenar = fechasARellenar(d.fechas, existentes.map((e) => e.fecha));
+    saltados += d.fechas.length - aRellenar.length;
+    if (aRellenar.length) {
+      await db.insert(horas).values(aRellenar.map((fecha) => ({
+        quincenaId: q.id, obreroId, tipo: "trabajado",
+        odooObraId: d.obraId, fecha, desde: null, hasta: null,
+        horas: String(d.horas), comentario: null,
+      })));
+      aplicados += aRellenar.length;
+    }
+  }
+  revalidatePath("/carga");
+  return { obreros: ids.length, aplicados, saltados };
 }
