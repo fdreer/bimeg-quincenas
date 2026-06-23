@@ -44,4 +44,5 @@ next-env.d.ts
 # claude code / agent tooling (caches locales, no van al repo)
 .claude/
 .agents/
+.superpowers/
 skills-lock.json
