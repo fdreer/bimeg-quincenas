@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, fechasARellenar } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, fechasARellenar, decidirAccionSync } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -199,4 +199,27 @@ test("fechasARellenar: si todas están guardadas, devuelve vacío", () => {
 });
 test("fechasARellenar: sin guardadas, devuelve el objetivo entero", () => {
   expect(fechasARellenar(["2026-06-16", "2026-06-17"], [])).toEqual(["2026-06-16", "2026-06-17"]);
+});
+
+// decidirAccionSync: precondición → el caller ya limpió huérfanos (id que no existe en Odoo = null).
+test("decidirAccionSync: sin tarifa → saltar", () => {
+  expect(decidirAccionSync({ tieneTarifa: false, tieneLineas: true, idFactura: null, estadoOdoo: null })).toBe("saltar");
+});
+test("decidirAccionSync: sin factura + con líneas → crear", () => {
+  expect(decidirAccionSync({ tieneTarifa: true, tieneLineas: true, idFactura: null, estadoOdoo: null })).toBe("crear");
+});
+test("decidirAccionSync: sin factura + sin líneas → saltar", () => {
+  expect(decidirAccionSync({ tieneTarifa: true, tieneLineas: false, idFactura: null, estadoOdoo: null })).toBe("saltar");
+});
+test("decidirAccionSync: borrador en Odoo + con líneas → actualizar", () => {
+  expect(decidirAccionSync({ tieneTarifa: true, tieneLineas: true, idFactura: 55, estadoOdoo: "draft" })).toBe("actualizar");
+});
+test("decidirAccionSync: borrador en Odoo + sin líneas → desvincular", () => {
+  expect(decidirAccionSync({ tieneTarifa: true, tieneLineas: false, idFactura: 55, estadoOdoo: "draft" })).toBe("desvincular");
+});
+test("decidirAccionSync: factura posteada → saltar (no se puede editar)", () => {
+  expect(decidirAccionSync({ tieneTarifa: true, tieneLineas: true, idFactura: 55, estadoOdoo: "posted" })).toBe("saltar");
+});
+test("decidirAccionSync: centinela en proceso (id negativo) → saltar", () => {
+  expect(decidirAccionSync({ tieneTarifa: true, tieneLineas: true, idFactura: -1, estadoOdoo: null })).toBe("saltar");
 });

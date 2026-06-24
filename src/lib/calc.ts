@@ -158,3 +158,24 @@ export function desglosarJornales(horas: number): { jornales: number; sobrante: 
   const sobrante = Math.round((horas - jornales * HORAS_JORNAL) * 100) / 100;
   return { jornales, sobrante };
 }
+
+export type AccionSync = "saltar" | "crear" | "actualizar" | "desvincular";
+
+/**
+ * Decide qué hacer con el comprobante borrador de un obrero:
+ * - tieneTarifa: precio/hora > 0.
+ * - tieneLineas: hay al menos una línea facturable (horas trabajadas con obra).
+ * - idFactura: id guardado en la liquidación. null = no hay; < 0 = centinela "en proceso".
+ *   PRECONDICIÓN: el caller ya limpió huérfanos (id que ya no existe en Odoo → pasar null).
+ * - estadoOdoo: state de la account.move si idFactura > 0 ("draft" | "posted" | …); null si no aplica.
+ */
+export function decidirAccionSync(args: {
+  tieneTarifa: boolean; tieneLineas: boolean; idFactura: number | null; estadoOdoo: string | null;
+}): AccionSync {
+  const { tieneTarifa, tieneLineas, idFactura, estadoOdoo } = args;
+  if (!tieneTarifa) return "saltar";
+  if (idFactura != null && idFactura < 0) return "saltar";       // EN_PROCESO: otra corrida lo está creando
+  if (idFactura == null) return tieneLineas ? "crear" : "saltar"; // sin factura (o huérfana ya limpiada)
+  if (estadoOdoo !== "draft") return "saltar";                   // posted u otro: no se puede editar
+  return tieneLineas ? "actualizar" : "desvincular";
+}
