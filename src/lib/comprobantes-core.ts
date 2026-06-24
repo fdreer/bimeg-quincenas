@@ -93,6 +93,7 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
       .onConflictDoNothing({ target: [liquidaciones.quincenaId, liquidaciones.obreroId] });
     const [liq] = await db.select().from(liquidaciones)
       .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId)));
+    if (!liq) throw new Error(`Sin fila de liquidación para obrero #${obreroId}`);
 
     // Huérfano: id guardado que ya no existe en Odoo (borrado a mano) → limpiar y tratar como sin factura.
     let idFactura = liq.odooFacturaId;
@@ -139,6 +140,7 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
     }
 
     // accion === "crear": claim atómico (marca EN_PROCESO solo si sigue sin factura).
+    if (!o.odooContactoId) return { obreroId, nombre: o.nombre, estado: "omitido", mensaje: "sin contacto Odoo" };
     const claim = await db.update(liquidaciones).set({ odooFacturaId: EN_PROCESO })
       .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId), isNull(liquidaciones.odooFacturaId)))
       .returning({ id: liquidaciones.id });
