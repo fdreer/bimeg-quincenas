@@ -37,18 +37,24 @@ export async function cerrarQuincena(quincenaId: number) {
 
   // Una transacción: o se congelan todas las liquidaciones y queda cerrada, o nada.
   await db.transaction(async (tx) => {
-    for (const obreroId of obreroIds) {
-      const o = obreroById.get(obreroId);
-      if (!o) continue;
-      const valorJornal = jornalDe(obreroId);
-      const adelantos = adelantoPorContacto.get(o.odooContactoId) ?? 0;
-      await tx.insert(liquidaciones)
-        .values({ quincenaId, obreroId, valorJornal: String(valorJornal), adelantos: String(adelantos) })
-        .onConflictDoUpdate({
-          target: [liquidaciones.quincenaId, liquidaciones.obreroId],
-          set: { valorJornal: String(valorJornal), adelantos: String(adelantos) },
-        });
-    }
+    const rows = obreroIds
+      .map((obreroId) => {
+        const o = obreroById.get(obreroId);
+        if (!o) return null;
+        return {
+          quincenaId, obreroId,
+          valorJornal: String(jornalDe(obreroId)),
+          adelantos: String(adelantoPorContacto.get(o.odooContactoId) ?? 0),
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    if (rows.length)
+      await tx.insert(liquidaciones).values(rows).onConflictDoUpdate({
+        target: [liquidaciones.quincenaId, liquidaciones.obreroId],
+        set: { valorJornal: sql`excluded.valor_jornal`, adelantos: sql`excluded.adelantos` },
+      });
+
     await tx.update(quincenas).set({ estado: "cerrada", cerradaEn: sql`now()` }).where(eq(quincenas.id, quincenaId));
   });
   revalidatePath("/saldos");

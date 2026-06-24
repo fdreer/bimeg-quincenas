@@ -104,21 +104,29 @@ export async function aplicarHorasEnLote(input: z.infer<typeof AplicarLote>) {
   const habil = await db.select({ id: obreros.id }).from(obreros)
     .where(and(inArray(obreros.id, d.obreroIds), eq(obreros.habilitado, true)));
   const ids = habil.map((o) => o.id);
+  const existentes = ids.length
+    ? await db.select({ obreroId: horas.obreroId, fecha: horas.fecha }).from(horas)
+        .where(and(eq(horas.quincenaId, q.id), inArray(horas.obreroId, ids)))
+    : [];
+  const fechasPorObrero = new Map<number, string[]>();
+  for (const e of existentes)
+    (fechasPorObrero.get(e.obreroId) ?? fechasPorObrero.set(e.obreroId, []).get(e.obreroId)!).push(e.fecha);
+
   let aplicados = 0, saltados = 0;
+  const aInsertar: typeof horas.$inferInsert[] = [];
   for (const obreroId of ids) {
-    const existentes = await db.select({ fecha: horas.fecha }).from(horas)
-      .where(and(eq(horas.quincenaId, q.id), eq(horas.obreroId, obreroId)));
-    const aRellenar = fechasARellenar(d.fechas, existentes.map((e) => e.fecha));
+    const aRellenar = fechasARellenar(d.fechas, fechasPorObrero.get(obreroId) ?? []);
     saltados += d.fechas.length - aRellenar.length;
-    if (aRellenar.length) {
-      await db.insert(horas).values(aRellenar.map((fecha) => ({
+    for (const fecha of aRellenar)
+      aInsertar.push({
         quincenaId: q.id, obreroId, tipo: "trabajado",
         odooObraId: d.obraId, fecha, desde: null, hasta: null,
         horas: String(d.horas), comentario: null,
-      })));
-      aplicados += aRellenar.length;
-    }
+      });
+    aplicados += aRellenar.length;
   }
+  if (aInsertar.length) await db.insert(horas).values(aInsertar);
+
   revalidatePath("/carga");
   return { obreros: ids.length, aplicados, saltados };
 }
