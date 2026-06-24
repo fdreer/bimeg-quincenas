@@ -1,7 +1,8 @@
 "use server";
 import { db } from "@/db";
 import { quincenas, horas, obreros, categorias, liquidaciones } from "@/db/schema";
-import { obtenerAdelantos } from "@/lib/odoo/queries";
+import { obtenerAdelantos, leerFacturas } from "@/lib/odoo/queries";
+import { sincronizarQuincena } from "@/lib/comprobantes-core";
 import { jornalEfectivo } from "@/lib/calc";
 import { requireAdmin } from "@/lib/auth-server";
 import { eq, sql } from "drizzle-orm";
@@ -57,16 +58,23 @@ export async function cerrarQuincena(quincenaId: number) {
 
     await tx.update(quincenas).set({ estado: "cerrada", cerradaEn: sql`now()` }).where(eq(quincenas.id, quincenaId));
   });
+  // Última sincronización del borrador con la tarifa CONGELADA (deja la factura con los números finales).
+  await sincronizarQuincena(quincenaId);
   revalidatePath("/saldos");
   revalidatePath("/carga");
 }
 
-// Reabre solo si no hay comprobantes ya creados (si los hay, anularlos en Odoo primero).
+// Reabre solo si no hay comprobantes contabilizados en Odoo (posted).
+// Los borradores (state="draft") se dejan vivos para poder seguir editando.
 export async function reabrirQuincena(quincenaId: number) {
   await requireAdmin();
   const liqs = await db.select().from(liquidaciones).where(eq(liquidaciones.quincenaId, quincenaId));
-  if (liqs.some((l) => l.odooFacturaId != null))
-    throw new Error("No se puede reabrir: hay comprobantes registrados en Odoo. Anulalos primero.");
+  // Con borradores diarios, tener una factura en borrador es lo normal: solo bloquea reabrir
+  // si alguna ya está CONTABILIZADA (posted) en Odoo. Los borradores siguen vivos al reabrir.
+  const ids = liqs.map((l) => l.odooFacturaId).filter((x): x is number => x != null && x > 0);
+  const facturas = await leerFacturas(ids);
+  if (facturas.some((f) => f.state === "posted"))
+    throw new Error("No se puede reabrir: hay comprobantes contabilizados en Odoo. Anulalos primero.");
   await db.update(quincenas).set({ estado: "borrador", cerradaEn: null }).where(eq(quincenas.id, quincenaId));
   revalidatePath("/saldos");
   revalidatePath("/carga");
