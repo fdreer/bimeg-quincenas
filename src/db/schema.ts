@@ -98,8 +98,9 @@ export const horas = pgTable("horas", {
   comentario: text("comentario"), // motivo de ausencia ("Médico") o nota
 });
 
-// Snapshot escrito AL CERRAR: congela jornal y adelantos para fijar el histórico.
-// Al registrar en Odoo se completa odooFacturaId (y odooFacturaNumero al publicarse).
+// Fila de vida del comprobante por (quincena, obrero): la crea temprano la sync diaria con valores
+// placeholder (valorJornal/adelantos se ignoran mientras la quincena está en borrador) y guarda el
+// odooFacturaId del borrador. Al CERRAR se congelan jornal y adelantos para fijar el histórico.
 export const liquidaciones = pgTable("liquidaciones", {
   id: serial("id").primaryKey(),
   quincenaId: integer("quincena_id").notNull().references(() => quincenas.id, { onDelete: "cascade" }),
