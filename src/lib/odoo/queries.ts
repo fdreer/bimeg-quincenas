@@ -81,6 +81,33 @@ export async function crearFacturaProveedor(args: {
   return id as number;
 }
 
+// Reescribe líneas + narración de una factura de proveedor en BORRADOR.
+// El caller garantiza state == "draft" (Odoo no deja editar líneas de una factura posteada).
+// [5,0,0] borra todas las líneas actuales; los [0,0,{…}] crean las nuevas. Odoo recalcula totales.
+export async function actualizarFacturaBorrador(args: {
+  facturaId: number; referencia: string; narracion: string; lineas: LineaFactura[];
+}): Promise<void> {
+  const invoice_line_ids: unknown[] = [[5, 0, 0]];
+  for (const l of args.lineas) invoice_line_ids.push([0, 0, {
+    product_id: l.productId,
+    name: l.nombre,
+    quantity: l.cantidad,
+    price_unit: l.precioUnit,
+    analytic_distribution: { [String(l.obraId)]: 100 },
+    tax_ids: [[6, 0, []]], // sin IVA
+  }]);
+  await ejecutar("account.move", "write", [[args.facturaId], {
+    ref: args.referencia,
+    narration: args.narracion,
+    invoice_line_ids,
+  }]);
+}
+
+// Borra una factura en BORRADOR (cuando el obrero se queda sin líneas). unlink solo permitido en draft.
+export async function eliminarFactura(facturaId: number): Promise<void> {
+  await ejecutar("account.move", "unlink", [[facturaId]]);
+}
+
 // Lee número (name) y estado de facturas por id. Usa search_read en vez de read para que un id
 // borrado en Odoo simplemente no vuelva (read tiraría MissingError). El caller compara contra
 // los ids pedidos para detectar facturas huérfanas y limpiarlas.
