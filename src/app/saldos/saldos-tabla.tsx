@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cerrarQuincena, reabrirQuincena } from "@/actions/cierre";
-import { registrarComprobantes } from "@/actions/comprobantes";
+import { sincronizarAhora } from "@/actions/comprobantes";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
@@ -52,17 +52,17 @@ export function SaldosTabla({ quincenas, quincenaId, estado, saldos, costos, tot
       catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo reabrir"); }
     });
   }
-  function registrar(obreroIds?: number[]) {
+  function sincronizar(obreroIds?: number[]) {
     startTransition(async () => {
       try {
-        const res = await registrarComprobantes(quincenaId, obreroIds);
-        const creados = res.filter((r) => r.estado === "creado").length;
+        const res = await sincronizarAhora(quincenaId, obreroIds);
+        const tocados = res.filter((r) => r.estado === "creado" || r.estado === "actualizado").length;
         const errores = res.filter((r) => r.estado === "error");
-        if (creados) toast.success(`${creados} comprobante${creados === 1 ? "" : "s"} en borrador`);
+        if (tocados) toast.success(`${tocados} comprobante${tocados === 1 ? "" : "s"} sincronizado${tocados === 1 ? "" : "s"} en borrador`);
         if (errores.length) toast.error(`${errores.length} con error: ${errores.map((e) => e.nombre).join(", ")}`);
-        if (!creados && !errores.length) toast.info("Sin comprobantes nuevos para crear");
+        if (!tocados && !errores.length) toast.info("Nada que sincronizar");
         router.refresh();
-      } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo registrar"); }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "No se pudo sincronizar"); }
     });
   }
 
@@ -91,10 +91,13 @@ export function SaldosTabla({ quincenas, quincenaId, estado, saldos, costos, tot
             {cerrada ? (
               <>
                 <Button variant="ghost" onClick={reabrir} disabled={pendiente}>Reabrir</Button>
-                <Button onClick={() => registrar()} disabled={pendiente} className="w-full sm:w-auto">Registrar todo en Odoo</Button>
+                <Button onClick={() => sincronizar()} disabled={pendiente} className="w-full sm:w-auto">Sincronizar ahora</Button>
               </>
             ) : (
-              <Button onClick={() => setConfirmarCerrar(true)} disabled={pendiente} className="w-full sm:w-auto">Cerrar quincena</Button>
+              <>
+                <Button variant="ghost" onClick={() => sincronizar()} disabled={pendiente}>Sincronizar ahora</Button>
+                <Button onClick={() => setConfirmarCerrar(true)} disabled={pendiente} className="w-full sm:w-auto">Cerrar quincena</Button>
+              </>
             )}
           </div>
         </div>
@@ -144,8 +147,8 @@ export function SaldosTabla({ quincenas, quincenaId, estado, saldos, costos, tot
                     <Badge variant="secondary" title={`Factura Odoo #${reg.facturaId} (${reg.estadoOdoo})`}>
                       {reg.numero !== "/" ? reg.numero : `#${reg.facturaId}`}
                     </Badge>
-                  ) : cerrada && !s.sinTarifa ? (
-                    <Button variant="outline" size="sm" onClick={() => registrar([s.obreroId])} disabled={pendiente} className="w-full">Registrar</Button>
+                  ) : !s.sinTarifa ? (
+                    <Button variant="outline" size="sm" onClick={() => sincronizar([s.obreroId])} disabled={pendiente} className="w-full">Sincronizar</Button>
                   ) : (
                     <span className="text-xs text-muted-foreground">—</span>
                   )}
