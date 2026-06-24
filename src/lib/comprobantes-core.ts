@@ -162,7 +162,9 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
   }
 
   const conHoras = new Set(filas.map((f) => f.obreroId));
-  const objetivo = [...new Set(obreroIds ?? [...conHoras])].filter((id) => conHoras.has(id) && obreroById.has(id));
+  // También incluir obreros con borrador activo pero sin horas: deben llegar a procesar() para desvincular.
+  const conBorrador = new Set(liqs.filter((l) => l.odooFacturaId != null && l.odooFacturaId > 0).map((l) => l.obreroId));
+  const objetivo = [...new Set(obreroIds ?? [...conHoras, ...conBorrador])].filter((id) => (conHoras.has(id) || conBorrador.has(id)) && obreroById.has(id));
   const resultados: ResultadoObrero[] = [];
   for (const obreroId of objetivo) {
     try { resultados.push(await procesar(obreroId)); }
