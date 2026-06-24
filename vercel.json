@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/sincronizar-borradores", "schedule": "0 2 * * *" }
+  ]
+}
