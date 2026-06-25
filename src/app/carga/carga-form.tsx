@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { addDays, format, parseISO } from "date-fns";
-import { ArrowRightIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
+import { ArrowRightIcon, ChevronDownIcon, Loader2Icon, MinusIcon, PlusIcon, XIcon } from "lucide-react";
 import { useCargaStore, type Asignacion, type DiaBorrador } from "@/store/carga-store";
 import { asegurarQuincena, guardarHoras, obtenerHorasGuardadas, obtenerEstadoCarga, aplicarHorasEnLote } from "@/actions/quincenas";
 import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, etiquetaObra, type EstadoCargaObrero } from "@/lib/calc";
@@ -13,15 +13,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Field } from "@/components/field";
 import { TimePicker } from "@/components/time-picker";
 import { ObreroCombobox } from "./obrero-combobox";
 import { toast } from "sonner";
 import type { Obra } from "@/lib/odoo/queries";
 import { EMPRESA_BIMEG } from "@/lib/constantes";
 
-// Grilla de una asignación (obra del día): se apila en mobile, inline desde sm.
-const ALOC_COLS = "sm:grid-cols-[minmax(8rem,1fr)_7rem_7rem_4.5rem_2rem]";
 const DOW = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const TIPO_ITEMS = { trabajado: "Presente", ausente: "Ausente" };
 
@@ -101,6 +98,13 @@ export function CargaForm({ obras, obreros }: {
   const [crewOpen, setCrewOpen] = useState(false);
   const [crewIds, setCrewIds] = useState<number[]>([]);
   const [aplicandoLote, setAplicandoLote] = useState(false);
+  // Acordeón: días plegados por defecto; se abre el que se quiere editar.
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
+  const toggleDia = (id: string) => setAbiertos((prev) => {
+    const n = new Set(prev);
+    if (n.has(id)) n.delete(id); else n.add(id);
+    return n;
+  });
   const { dias, dirty, cargarDias, marcarLimpio, marcarSucio, editarDia, editarAsignacion, agregarObra, quitarObra, aplicarABloque } = useCargaStore();
 
   const obraItems = Object.fromEntries(obras.map((o) => [String(o.id), etiquetaObra(o)]));
@@ -172,6 +176,10 @@ export function CargaForm({ obras, obreros }: {
     const patch: Partial<Asignacion> = { [campo]: val };
     if (desde && hasta) patch.horas = horasEntre(desde, hasta);
     editarAsignacion(d.id, i, patch);
+  }
+  // Horas por chip/stepper: setea el valor directo y limpia el rango (modo alternativo a desde–hasta).
+  function fijarHoras(d: DiaBorrador, i: number, val: number) {
+    editarAsignacion(d.id, i, { horas: Math.max(0, Math.min(24, r2(val))), desde: "", hasta: "" });
   }
 
   async function guardar(): Promise<boolean> {
@@ -353,56 +361,81 @@ export function CargaForm({ obras, obreros }: {
           <Loader2Icon className="animate-spin" /> Cargando datos…
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {dias.map((d) => {
             const fecha = parseISO(d.fecha);
             const ausente = d.tipo === "ausente";
-            const domingo = fecha.getDay() === 0;
+            const finde = fecha.getDay() === 0 || fecha.getDay() === 6; // sáb y dom en rojo
+            const abierto = abiertos.has(d.id);
+            const obrasDelDia = d.asignaciones.filter((a) => a.obraId != null);
             return (
-              <div key={d.id} data-ausente={ausente || undefined} className="rounded-lg border p-3 transition-colors data-[ausente=true]:bg-muted/30">
-                {/* Encabezado del día: fecha bien diferenciada + tipo + total. */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex w-24 items-baseline gap-2">
+              <div key={d.id} data-ausente={ausente || undefined} className="rounded-lg border transition-colors data-[ausente=true]:bg-muted/30">
+                {/* Fila-resumen plegada: fecha + obra/horas (o ausencia) + total; clic para desplegar. */}
+                <button type="button" onClick={() => toggleDia(d.id)} aria-expanded={abierto} className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left">
+                  <span className="flex w-20 shrink-0 items-baseline gap-2">
                     <span className="text-base font-semibold tabular-nums">{format(fecha, "dd/MM")}</span>
-                    <span className={cn("text-xs font-medium uppercase", domingo ? "text-destructive" : "text-muted-foreground")}>{DOW[fecha.getDay()]}</span>
-                  </div>
-                  <Select items={TIPO_ITEMS} value={d.tipo} onValueChange={(v) => cambiarTipo(d, v as "trabajado" | "ausente")}>
-                    <SelectTrigger className="w-32" aria-label="Tipo"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="trabajado">Presente</SelectItem>
-                      <SelectItem value="ausente">Ausente</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {!ausente && (
-                    <span className="ml-auto text-sm tabular-nums text-muted-foreground">
-                      <span className="font-semibold text-foreground">{totalDeDia(d)}</span> hs
-                    </span>
-                  )}
-                </div>
+                    <span className={cn("text-xs font-medium uppercase", finde ? "text-destructive" : "text-muted-foreground")}>{DOW[fecha.getDay()]}</span>
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                    {ausente
+                      ? <>Ausente{d.comentario.trim() && ` · ${d.comentario.trim()}`}</>
+                      : obrasDelDia.length === 0
+                        ? <span className="text-amber-600 dark:text-amber-400">Presente · falta obra</span>
+                        : obrasDelDia.length === 1
+                          ? obraItems[String(obrasDelDia[0].obraId)] ?? "Obra"
+                          : `${obrasDelDia.length} obras`}
+                  </span>
+                  {!ausente && <span className="shrink-0 text-sm tabular-nums"><span className="font-semibold">{totalDeDia(d)}</span> <span className="text-muted-foreground">hs</span></span>}
+                  <ChevronDownIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform", abierto && "rotate-180")} />
+                </button>
 
-                {ausente ? (
-                  <Input className="mt-3" value={d.comentario} placeholder="motivo (opcional: Médico, Falta…)" onChange={(e) => editarDia(d.id, { comentario: e.target.value })} />
-                ) : (
-                  <div className="mt-3 space-y-2">
-                    {d.asignaciones.map((a, i) => (
-                      <div key={i} className={`grid grid-cols-1 gap-2 sm:items-center ${ALOC_COLS}`}>
-                        <Field label="Obra" hideLabelAt="md">
-                          <Select items={obraItems} value={a.obraId != null ? String(a.obraId) : null} onValueChange={(v) => editarAsignacion(d.id, i, { obraId: v ? Number(v) : null })}>
-                            <SelectTrigger className="w-full" aria-label="Obra"><SelectValue placeholder="— elegir obra —" /></SelectTrigger>
-                            <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{etiquetaObra(o)}</SelectItem>)}</SelectContent>
-                          </Select>
-                        </Field>
-                        <Field label="Desde" hideLabelAt="md"><TimePicker value={a.desde} aria-label="Desde" onChange={(v) => cambiarTiempo(d, i, "desde", v)} /></Field>
-                        <Field label="Hasta" hideLabelAt="md"><TimePicker value={a.hasta} aria-label="Hasta" onChange={(v) => cambiarTiempo(d, i, "hasta", v)} /></Field>
-                        <Field label="Horas" hideLabelAt="md"><Input type="number" inputMode="decimal" step="0.5" value={a.horas} aria-label="Horas" readOnly={!!(a.desde && a.hasta)} className={a.desde && a.hasta ? "cursor-default bg-muted/50 text-muted-foreground" : ""} onChange={(e) => editarAsignacion(d.id, i, { horas: Number(e.target.value) })} /></Field>
-                        <div className="flex sm:justify-center">
-                          <Button variant="ghost" size="icon-sm" onClick={() => quitarObra(d.id, i)} disabled={d.asignaciones.length === 1} className="text-muted-foreground hover:text-destructive" title="Quitar obra" aria-label="Quitar obra"><XIcon /></Button>
-                        </div>
-                      </div>
-                    ))}
-                    <Button type="button" variant="ghost" size="sm" onClick={() => agregarObra(d.id)} className="text-muted-foreground hover:text-foreground">
-                      <PlusIcon data-icon="inline-start" /> Agregar obra
-                    </Button>
+                {abierto && (
+                  <div className="border-t px-3 py-2.5">
+                    <div className="mx-auto max-w-2xl space-y-2">
+                      <Select items={TIPO_ITEMS} value={d.tipo} onValueChange={(v) => cambiarTipo(d, v as "trabajado" | "ausente")}>
+                        <SelectTrigger className="w-32" aria-label="Tipo"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="trabajado">Presente</SelectItem>
+                          <SelectItem value="ausente">Ausente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {ausente ? (
+                        <Input value={d.comentario} placeholder="motivo (opcional: Médico, Falta…)" onChange={(e) => editarDia(d.id, { comentario: e.target.value })} />
+                      ) : (
+                        <>
+                          {d.asignaciones.map((a, i) => (
+                            <div key={i} className="space-y-2 rounded-md border p-2">
+                              <div className="flex items-center gap-2">
+                                <Select items={obraItems} value={a.obraId != null ? String(a.obraId) : null} onValueChange={(v) => editarAsignacion(d.id, i, { obraId: v ? Number(v) : null })}>
+                                  <SelectTrigger className="w-full" aria-label="Obra"><SelectValue placeholder="— elegir obra —" /></SelectTrigger>
+                                  <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{etiquetaObra(o)}</SelectItem>)}</SelectContent>
+                                </Select>
+                                <Button variant="ghost" size="icon-sm" onClick={() => quitarObra(d.id, i)} disabled={d.asignaciones.length === 1} className="shrink-0 text-muted-foreground hover:text-destructive" title="Quitar obra" aria-label="Quitar obra"><XIcon /></Button>
+                              </div>
+                              {/* Primero el horario (desde–hasta); después el total de horas, editable con ±. */}
+                              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-20"><TimePicker value={a.desde} aria-label="Desde" onChange={(v) => cambiarTiempo(d, i, "desde", v)} /></span>
+                                  <span className="text-muted-foreground">–</span>
+                                  <span className="w-20"><TimePicker value={a.hasta} aria-label="Hasta" onChange={(v) => cambiarTiempo(d, i, "hasta", v)} /></span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center rounded-md border">
+                                    <Button type="button" variant="ghost" size="icon-sm" aria-label="Restar media hora" onClick={() => fijarHoras(d, i, a.horas - 0.5)} className="rounded-r-none"><MinusIcon /></Button>
+                                    <span className="w-9 text-center text-sm font-semibold tabular-nums">{r2(a.horas)}</span>
+                                    <Button type="button" variant="ghost" size="icon-sm" aria-label="Sumar media hora" onClick={() => fijarHoras(d, i, a.horas + 0.5)} className="rounded-l-none"><PlusIcon /></Button>
+                                  </div>
+                                  <span className="text-sm text-muted-foreground">hs</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          <Button type="button" variant="ghost" size="sm" onClick={() => agregarObra(d.id)} className="text-muted-foreground hover:text-foreground">
+                            <PlusIcon data-icon="inline-start" /> Agregar obra
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
