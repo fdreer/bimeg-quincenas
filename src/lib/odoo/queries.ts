@@ -1,8 +1,9 @@
 import { unstable_cache } from "next/cache";
 import { ejecutar } from "./client";
+import { etiquetaObra } from "@/lib/calc";
 
 export type Empresa = { id: number; nombre: string };
-export type Obra = { id: number; nombre: string };
+export type Obra = { id: number; nombre: string; cliente: string | null };
 export type ContactoObrero = { odooContactoId: number; nombre: string; dni: string | null };
 export type Adelanto = { contactoId: number; monto: number; fecha: string };
 
@@ -25,8 +26,11 @@ export const obtenerObras = unstable_cache(
   async (empresaId: number): Promise<Obra[]> => {
     const filas = await ejecutar("account.analytic.account", "search_read",
       [[["company_id", "in", [empresaId, false]]]],
-      { fields: ["id", "name"], order: "name" });
-    return (filas as any[]).map((r) => ({ id: r.id, nombre: r.name }));
+      { fields: ["id", "name", "partner_id"] });
+    // Orden alfabético por la etiqueta visible ("CLIENTE - OBRA"), no por el nombre de la obra.
+    return (filas as any[])
+      .map((r) => ({ id: r.id, nombre: r.name, cliente: r.partner_id ? r.partner_id[1] : null }))
+      .sort((a, b) => etiquetaObra(a).localeCompare(etiquetaObra(b), "es"));
   },
   ["odoo-obras"],
   { revalidate: 600 },

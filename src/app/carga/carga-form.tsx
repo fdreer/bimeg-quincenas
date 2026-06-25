@@ -4,7 +4,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { ArrowRightIcon, Loader2Icon, PlusIcon, XIcon } from "lucide-react";
 import { useCargaStore, type Asignacion, type DiaBorrador } from "@/store/carga-store";
 import { asegurarQuincena, guardarHoras, obtenerHorasGuardadas, obtenerEstadoCarga, aplicarHorasEnLote } from "@/actions/quincenas";
-import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, type EstadoCargaObrero } from "@/lib/calc";
+import { horasEntre, rangoQuincena, HORAS_JORNAL, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, etiquetaObra, type EstadoCargaObrero } from "@/lib/calc";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,6 @@ const DOW = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const TIPO_ITEMS = { trabajado: "Presente", ausente: "Ausente" };
 
 type ObreroLite = { id: number; nombre: string; dni: string | null; obraHabitualId: number | null };
-const record = <T extends { id: number; nombre: string }>(xs: T[]) => Object.fromEntries(xs.map((x) => [String(x.id), x.nombre]));
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const mesItems = Object.fromEntries(MESES.map((n, i) => [String(i + 1), n]));
@@ -104,7 +103,7 @@ export function CargaForm({ obras, obreros }: {
   const [aplicandoLote, setAplicandoLote] = useState(false);
   const { dias, dirty, cargarDias, marcarLimpio, marcarSucio, editarDia, editarAsignacion, agregarObra, quitarObra, aplicarABloque } = useCargaStore();
 
-  const obraItems = record(obras);
+  const obraItems = Object.fromEntries(obras.map((o) => [String(o.id), etiquetaObra(o)]));
   const cy = ahora.getFullYear();
   const anioItems = Object.fromEntries([cy - 2, cy - 1, cy, cy + 1].map((a) => [String(a), String(a)]));
   const rango = rangoQuincena(anio, mes, mitad);
@@ -242,7 +241,7 @@ export function CargaForm({ obras, obreros }: {
     aplicarABloque(fechasDelSet, { obraId: Number(barObraId), desde: "", hasta: "", horas: barHorasNum });
   }
 
-  const barObraNombre = obras.find((o) => String(o.id) === barObraId)?.nombre ?? "—";
+  const barObraNombre = (() => { const o = obras.find((o) => String(o.id) === barObraId); return o ? etiquetaObra(o) : "—"; })();
 
   async function aplicarACuadrilla() {
     if (!barListo || crewIds.length === 0) return;
@@ -329,7 +328,7 @@ export function CargaForm({ obras, obreros }: {
               <Label>Carga rápida · Obra</Label>
               <Select items={obraItems} value={barObraId || null} onValueChange={(v) => setBarObraId(v ?? "")}>
                 <SelectTrigger className="w-full"><SelectValue placeholder="— elegir obra —" /></SelectTrigger>
-                <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
+                <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{etiquetaObra(o)}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5 w-20">
@@ -390,7 +389,7 @@ export function CargaForm({ obras, obreros }: {
                         <Field label="Obra" hideLabelAt="md">
                           <Select items={obraItems} value={a.obraId != null ? String(a.obraId) : null} onValueChange={(v) => editarAsignacion(d.id, i, { obraId: v ? Number(v) : null })}>
                             <SelectTrigger className="w-full" aria-label="Obra"><SelectValue placeholder="— elegir obra —" /></SelectTrigger>
-                            <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}</SelectContent>
+                            <SelectContent>{obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{etiquetaObra(o)}</SelectItem>)}</SelectContent>
                           </Select>
                         </Field>
                         <Field label="Desde" hideLabelAt="md"><TimePicker value={a.desde} aria-label="Desde" onChange={(v) => cambiarTiempo(d, i, "desde", v)} /></Field>

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { SearchIcon, PencilIcon, Loader2Icon, CopyIcon, CheckIcon } from "lucide-react";
 import { toast } from "sonner";
 import { guardarObrero } from "@/actions/obreros";
+import { etiquetaObra } from "@/lib/calc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, Di
 
 type ObreroRow = { id: number; nombre: string; categoriaId: number | null; valorJornal: string | null; aliasCbu: string | null; habilitado: boolean; obraHabitualId: number | null };
 type CategoriaLite = { id: number; nombre: string; valorJornal: string | null };
-type ObraLite = { id: number; nombre: string };
+type ObraLite = { id: number; nombre: string; cliente: string | null };
 
 const PAGE = 20;
 // Obrero (izq) | Categoría | Alias/CBU | acción. Sin `auto`: las columnas miden igual
@@ -141,7 +142,7 @@ function EditarObrero({ obrero, categorias, obras, onListo }: { obrero: ObreroRo
   const [valorJornal, setValorJornal] = useState(obrero.valorJornal ?? "");
   const [aliasCbu, setAliasCbu] = useState(obrero.aliasCbu ?? "");
   const [habilitado, setHabilitado] = useState(obrero.habilitado);
-  const obraItems: Record<string, string> = { "": "— sin obra habitual —", ...Object.fromEntries(obras.map((o) => [String(o.id), o.nombre])) };
+  const obraItems: Record<string, string> = { "": "— sin obra habitual —", ...Object.fromEntries(obras.map((o) => [String(o.id), etiquetaObra(o)])) };
   const [obraHabitualId, setObraHabitualId] = useState(obrero.obraHabitualId != null ? String(obrero.obraHabitualId) : "");
   const [guardando, setGuardando] = useState(false);
 
@@ -187,7 +188,7 @@ function EditarObrero({ obrero, categorias, obras, onListo }: { obrero: ObreroRo
             <SelectTrigger className="w-full"><SelectValue placeholder="— sin obra habitual —" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="">— sin obra habitual —</SelectItem>
-              {obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{o.nombre}</SelectItem>)}
+              {obras.map((o) => <SelectItem key={o.id} value={String(o.id)}>{etiquetaObra(o)}</SelectItem>)}
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">Pre-carga Lun–Vie en /carga. Vacío = cada día arranca Ausente.</p>

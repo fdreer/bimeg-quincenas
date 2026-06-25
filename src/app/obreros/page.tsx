@@ -44,7 +44,7 @@ export default async function ObrerosPage() {
           puedeEditar={esAdmin}
           obreros={obreros.map((o) => ({ id: o.id, nombre: o.nombre, categoriaId: o.categoriaId, valorJornal: o.valorJornal, aliasCbu: o.aliasCbu, habilitado: o.habilitado, obraHabitualId: o.odooObraHabitualId }))}
           categorias={categorias.map((c) => ({ id: c.id, nombre: c.nombre, valorJornal: c.valorJornal }))}
-          obras={obras.map((o) => ({ id: o.id, nombre: o.nombre }))}
+          obras={obras.map((o) => ({ id: o.id, nombre: o.nombre, cliente: o.cliente }))}
         />
       )}
     </main>

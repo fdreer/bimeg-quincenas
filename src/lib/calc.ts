@@ -90,6 +90,10 @@ export function saldo(devengado: number, adelantos: number): number {
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
+/** Etiqueta de obra para los selects: "CLIENTE - OBRA" en mayúsculas (cliente = partner de la cuenta analítica). */
+export const etiquetaObra = (o: { nombre: string; cliente: string | null }) =>
+  (o.cliente ? `${o.cliente} - ${o.nombre}` : o.nombre).toUpperCase();
+
 /** Etiqueta legible de una quincena a partir de su fecha de inicio ("yyyy-mm-dd"). */
 export function etiquetaQuincena(fechaInicio: string): string {
   const [anio, mes, dia] = fechaInicio.split("-").map(Number);
