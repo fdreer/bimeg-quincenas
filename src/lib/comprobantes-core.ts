@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { quincenas, horas, obreros, categorias, liquidaciones } from "@/db/schema";
 import {
-  obtenerObras, leerFacturas, crearFacturaProveedor, actualizarFacturaBorrador, eliminarFactura,
+  obtenerObras, leerFacturas, crearFacturaProveedor, actualizarFacturaBorrador, eliminarFactura, buscarBorradorPorRef,
 } from "@/lib/odoo/queries";
 import {
   valorHora, jornalEfectivo, etiquetaQuincena, desglosarJornales, construirLineasComprobante,
@@ -102,7 +102,19 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
         .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId)));
       idFactura = null;
     }
-    const estadoOdoo = idFactura != null && idFactura > 0 ? estadoFactura.get(idFactura) ?? null : null;
+    let estadoOdoo = idFactura != null && idFactura > 0 ? estadoFactura.get(idFactura) ?? null : null;
+
+    // Centinela pegado (-1): una corrida previa creó la factura en Odoo pero murió antes de guardar
+    // el id (timeout/crash). Buscar ese borrador por ref+partner y adoptarlo en vez de quedar trabado.
+    if (idFactura != null && idFactura < 0 && o.odooContactoId) {
+      const hallado = await buscarBorradorPorRef(o.odooContactoId, referencia, EMPRESA_BIMEG);
+      if (hallado) {
+        await db.update(liquidaciones).set({ odooFacturaId: hallado })
+          .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId)));
+        idFactura = hallado;
+        estadoOdoo = "draft";
+      }
+    }
 
     const accion = decidirAccionSync({
       tieneTarifa: precioHora > 0, tieneLineas: lineas.length > 0, idFactura, estadoOdoo,
@@ -146,6 +158,15 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
       .returning({ id: liquidaciones.id });
     if (claim.length === 0) return { obreroId, nombre: o.nombre, estado: "omitido" }; // otra corrida ganó el claim
     try {
+      // Idempotencia: si Odoo ya tiene un borrador con este ref+partner (link perdido en una corrida
+      // anterior), adoptarlo y actualizarlo en vez de crear un duplicado.
+      const previo = await buscarBorradorPorRef(o.odooContactoId, referencia, EMPRESA_BIMEG);
+      if (previo) {
+        await actualizarFacturaBorrador({ facturaId: previo, referencia, narracion, lineas: lineasOdoo });
+        await db.update(liquidaciones).set({ odooFacturaId: previo })
+          .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId)));
+        return { obreroId, nombre: o.nombre, estado: "actualizado", facturaId: previo };
+      }
       const facturaId = await crearFacturaProveedor({
         partnerId: o.odooContactoId, companyId: EMPRESA_BIMEG, journalId: DIARIO_COMPRAS,
         fecha: q.fechaFin, referencia, narracion, lineas: lineasOdoo,
@@ -165,10 +186,21 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
   // También incluir obreros con borrador activo pero sin horas: deben llegar a procesar() para desvincular.
   const conBorrador = new Set(liqs.filter((l) => l.odooFacturaId != null && l.odooFacturaId > 0).map((l) => l.obreroId));
   const objetivo = [...new Set(obreroIds ?? [...conHoras, ...conBorrador])].filter((id) => (conHoras.has(id) || conBorrador.has(id)) && obreroById.has(id));
+
+  // Procesa en lotes acotados: cada obrero toca solo su fila (quincena, obrero) y los reads ya están
+  // snapshoteados, así que correr en paralelo es seguro y saca el I/O contra Odoo del camino serie.
+  // ponytail: lotes de 6; bajar si Odoo rate-limitea, subir si hace falta más throughput.
+  const CONCURRENCIA = 6;
   const resultados: ResultadoObrero[] = [];
-  for (const obreroId of objetivo) {
-    try { resultados.push(await procesar(obreroId)); }
-    catch (e) { resultados.push({ obreroId, nombre: obreroById.get(obreroId)?.nombre ?? `#${obreroId}`, estado: "error", mensaje: e instanceof Error ? e.message : String(e) }); }
+  for (let i = 0; i < objetivo.length; i += CONCURRENCIA) {
+    const lote = await Promise.all(objetivo.slice(i, i + CONCURRENCIA).map(async (obreroId): Promise<ResultadoObrero> => {
+      try { return await procesar(obreroId); }
+      catch (e) {
+        console.error(`[sync] quincena ${quincenaId} obrero #${obreroId}:`, e);
+        return { obreroId, nombre: obreroById.get(obreroId)?.nombre ?? `#${obreroId}`, estado: "error", mensaje: e instanceof Error ? e.message : String(e) };
+      }
+    }));
+    resultados.push(...lote);
   }
   return resultados;
 }

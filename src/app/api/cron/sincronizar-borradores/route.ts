@@ -12,6 +12,8 @@ export async function GET(req: Request) {
   }
   try {
     const r = await sincronizarBorradores();
+    const errores = r.resultados.filter((x) => x.estado === "error").length;
+    console.log(`[cron] sync borradores: ${r.quincenas} quincena(s), ${r.resultados.length} obrero(s), ${errores} error(es)`);
     return NextResponse.json({ ok: true, ...r });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });

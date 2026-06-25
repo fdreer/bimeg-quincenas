@@ -108,6 +108,17 @@ export async function eliminarFactura(facturaId: number): Promise<void> {
   await ejecutar("account.move", "unlink", [[facturaId]]);
 }
 
+// Busca un borrador de factura de proveedor con este ref+partner (idempotencia/recuperación):
+// una corrida previa pudo crear la account.move en Odoo y morir antes de guardar el id en la DB.
+// Devuelve el id del borrador (state="draft") o null. limit 1: en el flujo normal hay a lo sumo uno.
+export async function buscarBorradorPorRef(partnerId: number, ref: string, companyId: number): Promise<number | null> {
+  const filas = await ejecutar("account.move", "search_read",
+    [[["ref", "=", ref], ["partner_id", "=", partnerId], ["company_id", "=", companyId],
+      ["move_type", "=", "in_invoice"], ["state", "=", "draft"]]],
+    { fields: ["id"], limit: 1 });
+  return (filas as any[])[0]?.id ?? null;
+}
+
 // Lee número (name) y estado de facturas por id. Usa search_read en vez de read para que un id
 // borrado en Odoo simplemente no vuelva (read tiraría MissingError). El caller compara contra
 // los ids pedidos para detectar facturas huérfanas y limpiarlas.
