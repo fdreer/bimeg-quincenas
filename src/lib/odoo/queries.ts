@@ -61,7 +61,7 @@ export type LineaFactura = { productId: number; nombre: string; cantidad: number
 // `fecha` = último día de la quincena: se usa como fecha de comprobante (invoice_date) y contable (date).
 // `narracion` se guarda en el campo "Términos y condiciones" (narration) de la factura.
 export async function crearFacturaProveedor(args: {
-  partnerId: number; companyId: number; journalId: number; fecha: string; referencia: string; narracion: string; lineas: LineaFactura[];
+  partnerId: number; companyId: number; journalId: number; fecha: string; vencimiento: string; referencia: string; narracion: string; lineas: LineaFactura[];
 }): Promise<number> {
   const invoice_line_ids = args.lineas.map((l) => [0, 0, {
     product_id: l.productId,
@@ -78,6 +78,8 @@ export async function crearFacturaProveedor(args: {
     journal_id: args.journalId,    // diario "Compras"
     invoice_date: args.fecha,      // fecha de comprobante
     date: args.fecha,              // fecha contable
+    invoice_payment_term_id: false, // sin término de pago: deja fijar el vencimiento a mano
+    invoice_date_due: args.vencimiento, // 4 días hábiles tras el cierre de quincena
     ref: args.referencia,
     narration: args.narracion,     // Términos y condiciones — desglose de la liquidación
     invoice_line_ids,
@@ -89,7 +91,7 @@ export async function crearFacturaProveedor(args: {
 // El caller garantiza state == "draft" (Odoo no deja editar líneas de una factura posteada).
 // [5,0,0] borra todas las líneas actuales; los [0,0,{…}] crean las nuevas. Odoo recalcula totales.
 export async function actualizarFacturaBorrador(args: {
-  facturaId: number; referencia: string; narracion: string; lineas: LineaFactura[];
+  facturaId: number; vencimiento: string; referencia: string; narracion: string; lineas: LineaFactura[];
 }): Promise<void> {
   const invoice_line_ids: unknown[] = [[5, 0, 0]];
   for (const l of args.lineas) invoice_line_ids.push([0, 0, {
@@ -101,6 +103,8 @@ export async function actualizarFacturaBorrador(args: {
     tax_ids: [[6, 0, []]], // sin IVA
   }]);
   await ejecutar("account.move", "write", [[args.facturaId], {
+    invoice_payment_term_id: false,
+    invoice_date_due: args.vencimiento,
     ref: args.referencia,
     narration: args.narracion,
     invoice_line_ids,

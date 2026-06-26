@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, fechasARellenar, decidirAccionSync } from "./calc";
+import { rangoQuincena, devengadoPorObrero, costoPorObra, saldo, jornalEfectivo, valorHora, horasEntre, HORAS_JORNAL, etiquetaQuincena, diasTrabajados, construirLineasComprobante, desglosarJornales, estadoCargaPorObrero, diasHabilesDeRango, semanasDeQuincena, fechasARellenar, decidirAccionSync, fechaVencimiento } from "./calc";
 
 test("rangoQuincena 1ra quincena", () => {
   expect(rangoQuincena(2026, 6, 1)).toEqual({ inicio: "2026-06-01", fin: "2026-06-15" });
@@ -9,6 +9,17 @@ test("rangoQuincena 2da quincena (junio = 30)", () => {
 });
 test("rangoQuincena 2da quincena (febrero = 28)", () => {
   expect(rangoQuincena(2026, 2, 2)).toEqual({ inicio: "2026-02-16", fin: "2026-02-28" });
+});
+
+// Vencimiento: 4 días hábiles tras el cierre de quincena (salta sáb/dom).
+test("fechaVencimiento: cierra Lun 15 → Vie 19", () => {
+  expect(fechaVencimiento("2026-06-15")).toBe("2026-06-19");
+});
+test("fechaVencimiento: cierra Mar 30 (fin de mes) → Lun 6", () => {
+  expect(fechaVencimiento("2026-06-30")).toBe("2026-07-06");
+});
+test("fechaVencimiento: cierra Vie → cruza el finde", () => {
+  expect(fechaVencimiento("2026-06-19")).toBe("2026-06-25"); // Vie+4háb = jue siguiente
 });
 
 // Modelo de jornal (día de 8 hs): la hora se deriva del jornal.

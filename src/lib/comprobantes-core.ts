@@ -5,7 +5,7 @@ import {
 } from "@/lib/odoo/queries";
 import {
   valorHora, jornalEfectivo, etiquetaQuincena, desglosarJornales, construirLineasComprobante,
-  decidirAccionSync, HORAS_JORNAL,
+  decidirAccionSync, fechaVencimiento, HORAS_JORNAL,
 } from "@/lib/calc";
 import { EMPRESA_BIMEG, DIARIO_COMPRAS, PRODUCTO_MANO_OBRA } from "@/lib/constantes";
 import { and, eq, isNull, inArray } from "drizzle-orm";
@@ -62,6 +62,7 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
   const nombreCategoria = new Map(cats.map((c) => [c.id, c.nombre]));
   const referencia = `QUINCENA${q.fechaFin.replace(/-/g, "")}`;
   const etiqueta = etiquetaQuincena(q.fechaInicio);
+  const vencimiento = fechaVencimiento(q.fechaFin); // 4 días hábiles tras el cierre
 
   // Estados vivos de las facturas ya guardadas (una sola lectura a Odoo).
   const idsReales = liqs.map((l) => l.odooFacturaId).filter((x): x is number => x != null && x > 0);
@@ -147,7 +148,7 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
     }
 
     if (accion === "actualizar") {
-      await actualizarFacturaBorrador({ facturaId: idFactura!, referencia, narracion, lineas: lineasOdoo });
+      await actualizarFacturaBorrador({ facturaId: idFactura!, vencimiento, referencia, narracion, lineas: lineasOdoo });
       return { obreroId, nombre: o.nombre, estado: "actualizado", facturaId: idFactura! };
     }
 
@@ -162,14 +163,14 @@ export async function sincronizarQuincena(quincenaId: number, obreroIds?: number
       // anterior), adoptarlo y actualizarlo en vez de crear un duplicado.
       const previo = await buscarBorradorPorRef(o.odooContactoId, referencia, EMPRESA_BIMEG);
       if (previo) {
-        await actualizarFacturaBorrador({ facturaId: previo, referencia, narracion, lineas: lineasOdoo });
+        await actualizarFacturaBorrador({ facturaId: previo, vencimiento, referencia, narracion, lineas: lineasOdoo });
         await db.update(liquidaciones).set({ odooFacturaId: previo })
           .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId)));
         return { obreroId, nombre: o.nombre, estado: "actualizado", facturaId: previo };
       }
       const facturaId = await crearFacturaProveedor({
         partnerId: o.odooContactoId, companyId: EMPRESA_BIMEG, journalId: DIARIO_COMPRAS,
-        fecha: q.fechaFin, referencia, narracion, lineas: lineasOdoo,
+        fecha: q.fechaFin, vencimiento, referencia, narracion, lineas: lineasOdoo,
       });
       await db.update(liquidaciones).set({ odooFacturaId: facturaId })
         .where(and(eq(liquidaciones.quincenaId, quincenaId), eq(liquidaciones.obreroId, obreroId)));

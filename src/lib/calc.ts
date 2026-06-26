@@ -13,6 +13,21 @@ export function rangoQuincena(anio: number, mes: number, mitad: 1 | 2): { inicio
 }
 
 /**
+ * Fecha de vencimiento de la factura: `dias` días hábiles (Lun–Vie) posteriores al cierre de quincena.
+ * Ej.: cierra Lun 15 → vence Vie 19; cierra Mar 30 → vence Lun 6 (salta el finde).
+ * ponytail: solo salta fines de semana, no feriados; sumar un calendario de feriados si hace falta.
+ */
+export function fechaVencimiento(cierre: string, dias = 4): string {
+  let d = parseISO(cierre);
+  for (let restantes = dias; restantes > 0; ) {
+    d = addDays(d, 1);
+    const dow = d.getDay(); // 0=Dom … 6=Sáb
+    if (dow >= 1 && dow <= 5) restantes--;
+  }
+  return fmt(d);
+}
+
+/**
  * Días Lun–Vie del rango [inicio, fin] inclusive, en "yyyy-MM-dd". Sáb y Dom quedan afuera.
  * Son los días que el pre-llenado de /carga marca como Presente.
  */
